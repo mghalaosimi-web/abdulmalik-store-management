@@ -4,7 +4,7 @@ Arabic-first, offline-first Windows desktop management system for a telecommunic
 
 ## Current implementation status
 
-**Active development — not production-ready.** The repository contains an initial operational vertical slice for catalog, customers, suppliers, purchasing, POS checkout, cash sessions, expenses, repair intake/status history, inventory adjustments, serialized-device registration, and an initial operational report. Full receivables/payables settlement, returns, user authorization, backup/restore, and production release controls remain incomplete.
+**Active development — not production-ready.** The repository contains initial operational workflows for catalog, customers, suppliers, purchasing, POS checkout, partial sales/purchase returns, customer/supplier settlements, cash sessions, expenses, repair intake/status history, inventory adjustments, serialized-device sales, and basic reporting. Full acceptance, void/credit-note workflows, user authorization, backup/restore, and production release controls remain incomplete.
 
 Do not enter live commercial data until the release gates in `docs/SECURITY.md` and `docs/IMPLEMENTATION-STATUS.md` are satisfied.
 
@@ -27,6 +27,7 @@ Do not enter live commercial data until the release gates in `docs/SECURITY.md` 
 - Cash drawer opening/closing with payments attributed to a specific cash session.
 - Expense vouchers with linked payment movements.
 - Customer receipts and supplier payments allocated to oldest outstanding invoices.
+- Partial purchase returns with current-stock protection and supplier credit/refund accounting.
 - Repair intake and validated status transitions with status history.
 - Initial double-entry journal posting for sales, purchases, and expenses, plus a trial-balance screen.
 - Basic sales, cost-of-goods, expenses, and inventory valuation report.

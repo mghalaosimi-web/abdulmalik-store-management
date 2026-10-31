@@ -14,7 +14,7 @@ required_tables = {
     "sales", "sale_items", "payments", "repairs", "repair_status_history",
     "purchase_orders", "purchase_items", "cash_sessions", "expenses", "audit_logs",
     "accounts", "journal_entries", "journal_lines", "sale_returns", "sale_return_items",
-    "sale_payment_allocations", "purchase_payment_allocations",
+    "sale_payment_allocations", "purchase_payment_allocations", "purchase_returns", "purchase_return_items",
 }
 actual_tables = {
     row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -57,7 +57,7 @@ connection.execute("INSERT INTO payments(id, direction, method, amount, cash_ses
 assert connection.execute("SELECT SUM(amount) FROM payments WHERE cash_session_id = 'cs-1'").fetchone()[0] == 25
 
 account_count = connection.execute("SELECT COUNT(*) FROM accounts").fetchone()[0]
-assert account_count >= 12, f"Expected seeded chart of accounts, got {account_count}"
+assert account_count >= 13, f"Expected seeded chart of accounts, got {account_count}"
 connection.execute("INSERT INTO journal_entries(id, entry_number, description, status) VALUES ('je-good', 'JE-TEST-1', 'Balanced test', 'draft')")
 connection.execute("INSERT INTO journal_lines(id, journal_entry_id, account_id, debit_minor) VALUES ('jl-d1', 'je-good', (SELECT id FROM accounts WHERE code = '1000'), 1000)")
 connection.execute("INSERT INTO journal_lines(id, journal_entry_id, account_id, credit_minor) VALUES ('jl-c1', 'je-good', (SELECT id FROM accounts WHERE code = '4000'), 1000)")
@@ -112,8 +112,16 @@ try:
 except sqlite3.IntegrityError:
     pass
 
+assert connection.execute("SELECT COUNT(*) FROM accounts WHERE code = '5100'").fetchone()[0] == 1
 connection.execute("INSERT INTO suppliers(id, name) VALUES ('s-1', 'Supplier')")
 connection.execute("INSERT INTO purchase_orders(id, invoice_number, supplier_id, subtotal, total) VALUES ('po-1', 'PUR-1', 's-1', 100, 100)")
 connection.execute("INSERT INTO purchase_items(id, purchase_id, product_id, quantity, unit_cost, line_total) VALUES ('pi-1', 'po-1', 'p-1', 1, 100, 100)")
+connection.execute("INSERT INTO purchase_returns(id, return_number, purchase_id, refund_amount, refund_method, reason) VALUES ('pret-1', 'PRT-1', 'po-1', 50, 'supplier_credit', 'Supplier return')")
+connection.execute("INSERT INTO purchase_return_items(id, return_id, purchase_item_id, quantity, refund_amount, inventory_value_returned) VALUES ('pri-1', 'pret-1', 'pi-1', 1, 50, 50)")
+try:
+    connection.execute("DELETE FROM purchase_returns WHERE id = 'pret-1'")
+    raise AssertionError("Posted purchase return should be immutable")
+except sqlite3.IntegrityError:
+    pass
 
-print(f"SQLite migrations verified: {len(required_tables)} required tables; opening stock, immutable ledgers, SKU uniqueness, cash-session attribution, seeded chart of accounts, and balanced/immutable journals, posted-sale immutability, and draft-only journal posting, and immutable sale-return ledger, and immutable customer settlement allocations passed.")
+print(f"SQLite migrations verified: {len(required_tables)} required tables; opening stock, immutable ledgers, SKU uniqueness, cash-session attribution, seeded chart of accounts, and balanced/immutable journals, posted-sale immutability, and draft-only journal posting, and immutable sale-return ledger, immutable customer settlement allocations, and immutable purchase-return ledger passed.")

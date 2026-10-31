@@ -12,6 +12,7 @@ import { createRepair, listRepairs, transitionRepair, type RepairRecord, type Re
 import type { Product } from "./types";
 import { createSupplier, listSuppliers, type Supplier } from "./lib/suppliers";
 import { receivePurchase, listRecentPurchases, type RecentPurchase, type PurchaseLineInput } from "./lib/purchases";
+import { listPurchaseReturnableItems, processPurchaseReturn, type ReturnablePurchaseItem } from "./lib/purchase-returns";
 import { closeCashSession, getOpenCashSession, openCashSession, recordExpense, type CashSession } from "./lib/cash";
 import { getDashboardMetrics, type DashboardMetrics } from "./lib/dashboard";
 import { getFinancialSummary, type FinancialSummary } from "./lib/reports";
@@ -62,6 +63,8 @@ export default function App() {
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
   const [saleToReturn, setSaleToReturn] = useState<RecentSale | null>(null);
   const [returnableItems, setReturnableItems] = useState<ReturnableSaleItem[]>([]);
+  const [purchaseToReturn, setPurchaseToReturn] = useState<RecentPurchase | null>(null);
+  const [returnablePurchaseItems, setReturnablePurchaseItems] = useState<ReturnablePurchaseItem[]>([]);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [unitProduct, setUnitProduct] = useState<Product | null>(null);
   const [stockDiscrepancies, setStockDiscrepancies] = useState<StockDiscrepancy[]>([]);
@@ -344,6 +347,36 @@ export default function App() {
     finally { setBusy(false); }
   }
 
+  async function openPurchaseReturn(purchase: RecentPurchase) {
+    setBusy(true);
+    try {
+      const items = await listPurchaseReturnableItems(purchase.id);
+      const available = items.filter((item) => item.remainingQuantity > 0 && item.availableStock > 0);
+      if (!available.length) throw new Error("لا توجد كميات من هذه الفاتورة متاحة للإرجاع من المخزون الحالي.");
+      setReturnablePurchaseItems(available); setPurchaseToReturn(purchase); setError("");
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر تحميل بنود مرتجع الشراء."); }
+    finally { setBusy(false); }
+  }
+
+  async function handlePurchaseReturn(form: HTMLFormElement) {
+    if (!purchaseToReturn) return;
+    const data = new FormData(form); setBusy(true);
+    try {
+      const result = await processPurchaseReturn({
+        purchaseId: purchaseToReturn.id,
+        items: [{ purchaseItemId: String(data.get("purchaseItemId") ?? ""), quantity: Number(data.get("quantity")) }],
+        refundAmount: Number(data.get("refundAmount")),
+        refundMethod: String(data.get("refundMethod") ?? "supplier_credit") as "supplier_credit" | "cash" | "card" | "transfer" | "mobile_wallet" | "other",
+        reason: String(data.get("reason") ?? ""),
+      });
+      setPurchaseToReturn(null);
+      await Promise.all([refreshProducts(), refreshPurchases(), refreshSuppliers(), refreshCash(), refreshAccounting(), refreshReport(), refreshDashboard()]);
+      setNotice(`تم ترحيل مرتجع الشراء ${result.returnNumber} بقيمة ${result.refundAmount.toFixed(2)} وخفض المخزون بمقدار الكميات المرتجعة.`);
+      setError("");
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر ترحيل مرتجع الشراء."); }
+    finally { setBusy(false); }
+  }
+
   async function handleSaleReturn(form: HTMLFormElement) {
     if (!saleToReturn) return;
     const data = new FormData(form);
@@ -557,7 +590,7 @@ export default function App() {
             <div className="form-grid"><label className="field"><span>المورد</span><select value={purchaseSupplier} onChange={(e) => setPurchaseSupplier(e.target.value)}><option value="">اختر المورد</option>{suppliers.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label><label className="field"><span>المنتج</span><select value={purchaseProduct} onChange={(e) => { setPurchaseProduct(e.target.value); const p=products.find(x=>x.id===e.target.value); if(p)setPurchaseUnitCost(p.costPrice.toString()); }}><option value="">اختر المنتج</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label className="field"><span>الكمية</span><input type="number" min="1" step="1" value={purchaseQuantity} onChange={(e) => setPurchaseQuantity(Number(e.target.value))} /></label><label className="field"><span>تكلفة الوحدة</span><input type="number" min="0" step="0.01" value={purchaseUnitCost} onChange={(e) => setPurchaseUnitCost(e.target.value)} /></label></div>
             <button className="secondary-button add-line-button" onClick={addPurchaseLine}><Plus size={16} /> إضافة بند شراء</button>
             <div className="table-wrap"><table><thead><tr><th>المنتج</th><th>الكمية</th><th>تكلفة الوحدة</th><th>الإجمالي</th><th></th></tr></thead><tbody>{purchaseCart.map((line, index) => { const p=products.find(x=>x.id===line.productId); return <tr key={`${line.productId}-${index}`}><td>{p?.name ?? "منتج"}</td><td>{line.quantity}</td><td>{line.unitCost.toFixed(2)}</td><td>{(line.quantity*line.unitCost).toFixed(2)}</td><td><button className="text-button" onClick={() => setPurchaseCart((current) => current.filter((_, i) => i !== index))}>إزالة</button></td></tr>; })}</tbody></table>{purchaseCart.length===0 && <div className="table-empty">أضف الأصناف المستلمة.</div>}</div>
-            <div className="panel-heading purchase-history-heading"><div><h3>آخر فواتير الشراء</h3><p>آخر 100 فاتورة مسجلة</p></div></div><div className="table-wrap"><table><thead><tr><th>الفاتورة</th><th>المورد</th><th>الإجمالي</th><th>المدفوع</th><th>التاريخ</th></tr></thead><tbody>{purchases.slice(0,10).map((p)=><tr key={p.id}><td dir="ltr">{p.invoiceNumber}</td><td>{p.supplierName}</td><td>{p.total.toFixed(2)}</td><td>{p.paidAmount.toFixed(2)}</td><td>{new Date(p.createdAt).toLocaleDateString("ar")}</td></tr>)}</tbody></table></div>
+            <div className="panel-heading purchase-history-heading"><div><h3>آخر فواتير الشراء</h3><p>آخر 100 فاتورة مسجلة</p></div></div><div className="table-wrap"><table><thead><tr><th>الفاتورة</th><th>المورد</th><th>الإجمالي</th><th>المدفوع</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody>{purchases.slice(0,10).map((p)=><tr key={p.id}><td dir="ltr">{p.invoiceNumber}</td><td>{p.supplierName}</td><td>{p.total.toFixed(2)}</td><td>{p.paidAmount.toFixed(2)}</td><td>{new Date(p.createdAt).toLocaleDateString("ar")}</td><td><button className="text-button" disabled={busy} onClick={()=>void openPurchaseReturn(p)}>مرتجع للمورد</button></td></tr>)}</tbody></table></div>
           </div>
           <div className="panel checkout-panel"><h3>ملخص الشراء</h3><div className="checkout-total"><span>الإجمالي</span><strong>{purchaseTotal.toFixed(2)}</strong></div><label className="field"><span>المبلغ المدفوع نقداً</span><input type="number" min="0" step="0.01" value={purchasePaid} onChange={(e)=>setPurchasePaid(e.target.value)} /></label><button className="primary-button checkout-button" disabled={busy || !purchaseCart.length || !purchaseSupplier} onClick={()=>void completePurchase()}><ShoppingBasket size={17}/> ترحيل فاتورة الشراء</button><p className="muted-help">يتطلب السداد النقدي فتح وردية الصندوق. ترحيل المشتريات يحدّث المخزون ومتوسط تكلفة المنتج ضمن معاملة واحدة.</p></div>
         </section>}
@@ -606,6 +639,16 @@ export default function App() {
       </Modal>}
       {supplierPaymentTarget && <Modal title={`سداد للمورد: ${supplierPaymentTarget.name}`} subtitle={`الرصيد المستحق للمورد: ${supplierPaymentTarget.balance.toFixed(2)}`} onClose={()=>setSupplierPaymentTarget(null)} onSubmit={handleSupplierSettlement} busy={busy}>
         <div className="form-grid"><Field name="amount" label="مبلغ السداد" type="number" min="0.01" step="0.01" required/><label className="field"><span>طريقة السداد</span><select name="method"><option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option><option value="mobile_wallet">محفظة إلكترونية</option><option value="other">أخرى</option></select></label><Field name="note" label="ملاحظات / مرجع"/></div><p className="muted-help">سيتم توزيع المبلغ آلياً على أقدم فواتير المورد المستحقة. السداد النقدي يتطلب رصيداً كافياً في وردية مفتوحة.</p>
+      </Modal>}
+      {purchaseToReturn && <Modal title={`مرتجع فاتورة شراء ${purchaseToReturn.invoiceNumber}`} subtitle="اختر الصنف والكمية وأدخل مبلغ الاسترداد وسبب الإرجاع" onClose={()=>setPurchaseToReturn(null)} onSubmit={handlePurchaseReturn} busy={busy}>
+        <div className="form-grid">
+          <label className="field"><span>الصنف المرتجع</span><select name="purchaseItemId" required>{returnablePurchaseItems.map((item)=><option key={item.purchaseItemId} value={item.purchaseItemId}>{item.productName} — المتبقي من الفاتورة {item.remainingQuantity} — المتاح بالمخزون {item.availableStock}</option>)}</select></label>
+          <label className="field"><span>الكمية</span><input name="quantity" type="number" min="1" max={Math.max(...returnablePurchaseItems.map((item)=>Math.min(item.remainingQuantity,item.availableStock)))} defaultValue="1" required/></label>
+          <Field name="refundAmount" label="قيمة الاسترداد من المورد" type="number" min="0.01" step="0.01" required/>
+          <label className="field"><span>طريقة التسوية</span><select name="refundMethod"><option value="supplier_credit">رصيد دائن لدى المورد (يخفض المستحق)</option><option value="cash">استرداد نقدي</option><option value="transfer">تحويل بنكي</option><option value="card">بطاقة</option><option value="mobile_wallet">محفظة إلكترونية</option><option value="other">أخرى</option></select></label>
+          <Field name="reason" label="سبب الإرجاع" required/>
+        </div>
+        <p className="muted-help">لا يسمح النظام بإرجاع كمية سبق بيعها أو استهلاكها. تتم إعادة احتساب قيمة المخزون بسعر التكلفة المتوسط الحالي، وتسجيل حركة مخزون وقيد عكسي. الرصيد الدائن يقتصر على المبلغ غير المدفوع للمورد.</p>
       </Modal>}
       {saleToReturn && <Modal title={`مرتجع فاتورة ${saleToReturn.invoiceNumber}`} subtitle="اختر الصنف والكمية وأدخل مبلغ الاسترداد وسبب الإرجاع" onClose={() => setSaleToReturn(null)} onSubmit={handleSaleReturn} busy={busy}>
         <div className="form-grid">

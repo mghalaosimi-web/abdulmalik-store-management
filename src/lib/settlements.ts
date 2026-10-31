@@ -28,17 +28,18 @@ export async function listCustomerBalances(): Promise<PartyBalance[]> {
 export async function listSupplierBalances(): Promise<PartyBalance[]> {
   const db = await getDatabase();
   const rows = await db.select<Array<{
-    id: string; name: string; document_count: number; gross: number; initial_paid: number; later_paid: number;
+    id: string; name: string; document_count: number; gross: number; initial_paid: number; later_paid: number; credits: number;
   }>>(
     `SELECT s.id, s.name, COUNT(p.id) AS document_count,
             COALESCE(SUM(p.total), 0) AS gross,
             COALESCE(SUM(p.paid_amount), 0) AS initial_paid,
-            COALESCE(SUM((SELECT SUM(a.amount) FROM purchase_payment_allocations a WHERE a.purchase_id = p.id)), 0) AS later_paid
+            COALESCE(SUM((SELECT SUM(a.amount) FROM purchase_payment_allocations a WHERE a.purchase_id = p.id)), 0) AS later_paid,
+            COALESCE(SUM((SELECT SUM(r.refund_amount) FROM purchase_returns r WHERE r.purchase_id = p.id AND r.refund_method = 'supplier_credit')), 0) AS credits
      FROM suppliers s LEFT JOIN purchase_orders p ON p.supplier_id = s.id AND p.status = 'posted'
      GROUP BY s.id, s.name ORDER BY s.name COLLATE NOCASE`,
   );
   return rows.map((row) => {
-    const settled = row.initial_paid + row.later_paid;
+    const settled = row.initial_paid + row.later_paid + row.credits;
     return { id: row.id, name: row.name, documentCount: row.document_count, gross: row.gross, settled, balance: Math.max(0, row.gross - settled) };
   });
 }
@@ -118,9 +119,10 @@ export async function paySupplier(input: { supplierId: string; amount: number; m
   try {
     const suppliers = await db.select<Array<{ id: string }>>("SELECT id FROM suppliers WHERE id = ? LIMIT 1", [input.supplierId]);
     if (!suppliers[0]) throw new Error("المورد غير موجود.");
-    const invoices = await db.select<Array<{ id: string; total: number; paid_amount: number; later_paid: number }>>(
+    const invoices = await db.select<Array<{ id: string; total: number; paid_amount: number; later_paid: number; credits: number }>>(
       `SELECT p.id, p.total, p.paid_amount,
-              COALESCE((SELECT SUM(a.amount) FROM purchase_payment_allocations a WHERE a.purchase_id = p.id), 0) AS later_paid
+              COALESCE((SELECT SUM(a.amount) FROM purchase_payment_allocations a WHERE a.purchase_id = p.id), 0) AS later_paid,
+              COALESCE((SELECT SUM(r.refund_amount) FROM purchase_returns r WHERE r.purchase_id = p.id AND r.refund_method = 'supplier_credit'), 0) AS credits
        FROM purchase_orders p WHERE p.supplier_id = ? AND p.status = 'posted'
        ORDER BY p.created_at ASC, p.invoice_number ASC`,
       [input.supplierId],
@@ -129,7 +131,7 @@ export async function paySupplier(input: { supplierId: string; amount: number; m
     let remaining = amountMinor;
     let outstandingTotal = 0;
     for (const invoice of invoices) {
-      const due = Math.max(0, toMinorUnits(invoice.total) - toMinorUnits(invoice.paid_amount) - toMinorUnits(invoice.later_paid));
+      const due = Math.max(0, toMinorUnits(invoice.total) - toMinorUnits(invoice.paid_amount) - toMinorUnits(invoice.later_paid) - toMinorUnits(invoice.credits));
       outstandingTotal += due;
       if (remaining <= 0 || due <= 0) continue;
       const allocation = Math.min(remaining, due);

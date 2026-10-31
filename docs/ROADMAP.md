@@ -24,9 +24,10 @@
 - [x] POS checkout, stock checks, payments, and transactional posting.
 - [x] Cash sessions and shift reconciliation.
 - [x] Customer receipts and supplier payments allocated to oldest open invoices with immutable allocation rows.
-- [ ] Supplier statements and purchase returns.
+- [x] Partial purchase returns with stock availability guards, weighted-average inventory value reduction, supplier-credit or cash/bank refund, and compensating journal.
+- [ ] Supplier statements and purchase return acceptance tests.
 - [x] Partial sales return workflow with quantity limits, stock restoration, refund payment, and compensating journal.
-- [ ] Void/credit-note controls, purchase returns, invoice printing, and tax invoice review.
+- [ ] Void/credit-note controls, invoice printing, and tax invoice review.
 - [ ] Price lists, discounts, promotions, and payment allocation.
 
 ## Phase 3 — Customers, repairs, warranty

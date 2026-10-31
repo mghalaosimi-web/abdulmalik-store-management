@@ -36,7 +36,7 @@ This is an initial operational slice, not a production-ready ERP/POS. Do not ent
 | INV-01 | Serialized devices and IMEI/serial validation | IMEI validation + registration service; full lifecycle pending | P1 | Unique identifiers, device lifecycle, and tests |
 | INV-02 | Inventory ledger, adjustments, reconciliation | Opening ledger + adjustments + immutable movements; stocktake pending | P1 | Transactional movements, immutable history, balance reconciliation |
 | INV-03 | Barcode generation and label printing | Pending | P2 | Printable labels and tested barcode payloads |
-| PUR-01 | Suppliers and purchasing | Supplier records + receiving + weighted-average cost + supplier settlement allocation | P1 | Purchase workflow updates stock and supplier balances transactionally |
+| PUR-01 | Suppliers and purchasing | Supplier records + receiving + weighted-average cost + supplier settlement allocation + partial purchase returns | P1 | Purchase workflow updates stock and supplier balances transactionally |
 | POS-01 | POS cart and checkout | Transactional checkout + stock decrement + invoice reference | P0 | Atomic checkout, stock checks, price snapshots, and failure rollback |
 | POS-02 | Payments, invoices, returns, void controls | Partial sales returns/refunds and compensating journal; voids/print/tax invoice pending | P0 | Payment allocation, invoice numbering, return controls, audit trail |
 | CASH-01 | Cash drawer and shift closing | Session opening/closing + exact cash-session payment attribution | P1 | Opening/closing balances and variance report |
@@ -129,3 +129,4 @@ To reduce merge conflicts, use these proposed lanes:
 - 2026-11-01: Added migration v4 and an initial partial sales-return workflow. Returns enforce remaining sold quantities and proportional invoice refund caps, restore stock, attribute cash refunds to an open cash session, and post compensating journal entries.
 - 2026-11-01: Added migration v5 and settlement workflows. Customer receipts and supplier payments are allocated oldest-invoice-first, create immutable allocation records and balanced journal entries, and update calculated party balances without editing posted invoices.
 - 2026-11-01: Added unit tests for proportional refund allocation (including one-minor-unit rounding cases); dashboard daily revenue now nets same-day returns. Frontend suite: 16 tests passing.
+- 2026-11-01: Added migration v6 and partial purchase returns. Returns enforce purchased-quantity and current-stock limits, reverse supplier payable or record incoming refund, reduce inventory at current weighted-average cost, reverse input tax proportionally, and post a balanced compensating journal.
