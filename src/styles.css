@@ -56,3 +56,9 @@
 .about-mark{width:48px;height:48px;border-radius:14px;background:#e6f2ed;color:var(--green);display:grid;place-items:center;font-size:23px;font-weight:700;flex-shrink:0}
 .development-note{font-size:10px;color:#89978f;line-height:1.8;margin:0}
 @media(max-width:700px){.development-cta{align-items:flex-start;flex-wrap:wrap}.development-cta-copy{width:calc(100% - 60px)}.development-cta>a{margin-right:56px}.development-details{grid-template-columns:1fr}.development-hero{padding:23px}.development-hero h2{font-size:19px}}
+.settings-page{display:grid;gap:15px}
+.settings-support{padding:20px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.settings-support h3{font-size:13px;margin:10px 0 6px}
+.settings-support p{font-size:11px;color:#87958e;line-height:1.8;margin:0}
+.settings-support .panel-actions a{text-decoration:none}
+@media(max-width:700px){.settings-support{align-items:flex-start;flex-direction:column}}
