@@ -33,7 +33,9 @@ export function calculateLineTotal(unitPrice: number, quantity: number, discount
   return gross - discountMinor;
 }
 
-export function formatMoney(value: number, currency = "YER"): string {
+export const DEFAULT_CURRENCY_CODE = "SAR";
+
+export function formatMoney(value: number, currency = DEFAULT_CURRENCY_CODE): string {
   return new Intl.NumberFormat("ar", {
     style: "currency",
     currency,
