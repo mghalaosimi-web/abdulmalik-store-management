@@ -4,7 +4,7 @@ import {
   Headphones, LayoutDashboard, Package, Plus, Search, Settings, ShoppingCart,
   Users, Wrench, Wifi, X, Receipt, RefreshCw, Truck, Wallet, ShoppingBasket,
 } from "lucide-react";
-import { adjustStock, createProduct, listProducts, reconcileStock, registerProductUnit, type StockDiscrepancy } from "./lib/products";
+import { adjustStock, createProduct, listProductUnits, listProducts, reconcileStock, registerProductUnit, type ProductUnit, type StockDiscrepancy } from "./lib/products";
 import { isDesktopRuntime } from "./lib/database";
 import { createCustomer, listCustomers, type Customer } from "./lib/customers";
 import { checkoutSale, listRecentSales, type RecentSale } from "./lib/sales";
@@ -15,6 +15,8 @@ import { receivePurchase, listRecentPurchases, type RecentPurchase, type Purchas
 import { closeCashSession, getOpenCashSession, openCashSession, recordExpense, type CashSession } from "./lib/cash";
 import { getDashboardMetrics, type DashboardMetrics } from "./lib/dashboard";
 import { getFinancialSummary, type FinancialSummary } from "./lib/reports";
+import { listSaleReturnableItems, processSaleReturn, type ReturnableSaleItem } from "./lib/returns";
+import { listCustomerBalances, listSupplierBalances, receiveCustomerPayment, paySupplier, type PartyBalance } from "./lib/settlements";
 import { getTrialBalance, listRecentJournalEntries, type TrialBalanceRow, type JournalEntrySummary } from "./lib/accounting";
 
 type Section = "dashboard" | "products" | "sales" | "purchases" | "customers" | "suppliers" | "repairs" | "cash" | "accounting" | "reports" | "settings";
@@ -32,7 +34,7 @@ const navigation: { id: Section; label: string; icon: typeof LayoutDashboard }[]
   { id: "settings", label: "الإعدادات", icon: Settings },
 ];
 
-interface CartLine { productId: string; quantity: number }
+interface CartLine { productId: string; quantity: number; productUnitId?: string }
 
 export default function App() {
   const [section, setSection] = useState<Section>("dashboard");
@@ -47,6 +49,10 @@ export default function App() {
   const [financialSummary, setFinancialSummary] = useState<FinancialSummary | null>(null);
   const [trialBalance, setTrialBalance] = useState<TrialBalanceRow[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntrySummary[]>([]);
+  const [customerBalances, setCustomerBalances] = useState<PartyBalance[]>([]);
+  const [supplierBalances, setSupplierBalances] = useState<PartyBalance[]>([]);
+  const [customerPaymentTarget, setCustomerPaymentTarget] = useState<PartyBalance | null>(null);
+  const [supplierPaymentTarget, setSupplierPaymentTarget] = useState<PartyBalance | null>(null);
   const [reportFrom, setReportFrom] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10));
   const [reportTo, setReportTo] = useState(new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState("");
@@ -54,6 +60,8 @@ export default function App() {
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [showCreateRepair, setShowCreateRepair] = useState(false);
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
+  const [saleToReturn, setSaleToReturn] = useState<RecentSale | null>(null);
+  const [returnableItems, setReturnableItems] = useState<ReturnableSaleItem[]>([]);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
   const [unitProduct, setUnitProduct] = useState<Product | null>(null);
   const [stockDiscrepancies, setStockDiscrepancies] = useState<StockDiscrepancy[]>([]);
@@ -65,6 +73,8 @@ export default function App() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [cartProduct, setCartProduct] = useState("");
   const [cartQuantity, setCartQuantity] = useState(1);
+  const [saleProductUnits, setSaleProductUnits] = useState<ProductUnit[]>([]);
+  const [saleProductUnitId, setSaleProductUnitId] = useState("");
   const [saleCustomer, setSaleCustomer] = useState("");
   const [salePaid, setSalePaid] = useState("0");
   const [salePaymentMethod, setSalePaymentMethod] = useState<"cash" | "card" | "transfer" | "mobile_wallet" | "other">("cash");
@@ -84,7 +94,9 @@ export default function App() {
 
   const refreshCustomers = useCallback(async (term = "") => {
     if (!isDesktopRuntime()) return;
-    setCustomers(await listCustomers(term));
+    const [records, balances] = await Promise.all([listCustomers(term), listCustomerBalances()]);
+    setCustomers(records);
+    setCustomerBalances(balances);
   }, []);
 
   const refreshSales = useCallback(async () => {
@@ -98,7 +110,9 @@ export default function App() {
   }, []);
   const refreshSuppliers = useCallback(async (term = "") => {
     if (!isDesktopRuntime()) return;
-    setSuppliers(await listSuppliers(term));
+    const [records, balances] = await Promise.all([listSuppliers(term), listSupplierBalances()]);
+    setSuppliers(records);
+    setSupplierBalances(balances);
   }, []);
   const refreshPurchases = useCallback(async () => {
     if (!isDesktopRuntime()) return;
@@ -259,25 +273,44 @@ export default function App() {
     } finally { setBusy(false); }
   }
 
+  async function handleSaleProductChange(productId: string) {
+    setCartProduct(productId);
+    setSaleProductUnitId("");
+    if (!productId || !desktop) { setSaleProductUnits([]); return; }
+    try { setSaleProductUnits(await listProductUnits(productId)); }
+    catch (e) { setError(e instanceof Error ? e.message : "تعذر تحميل الأرقام التسلسلية."); }
+  }
+
   function addCartLine() {
     if (!cartProduct || !Number.isSafeInteger(cartQuantity) || cartQuantity < 1) {
       setError("اختر منتجاً وأدخل كمية صحيحة.");
       return;
     }
     const product = products.find((item) => item.id === cartProduct);
-    const alreadyInCart = cart.filter((line) => line.productId === cartProduct).reduce((sum, line) => sum + line.quantity, 0);
-    if (!product || alreadyInCart + cartQuantity > product.quantity) {
+    const registeredUnits = saleProductUnits.filter((unit) => unit.status !== "sold");
+    const untrackedAvailable = (product?.quantity ?? 0) - registeredUnits.length;
+    if (!product || cartQuantity > product.quantity) {
       setError("الكمية المطلوبة تتجاوز المخزون المتاح.");
       return;
     }
-    setCart((current) => {
-      const existing = current.find((line) => line.productId === cartProduct);
-      return existing
-        ? current.map((line) => line.productId === cartProduct ? { ...line, quantity: line.quantity + cartQuantity } : line)
-        : [...current, { productId: cartProduct, quantity: cartQuantity }];
-    });
+    if (saleProductUnitId) {
+      if (cartQuantity !== 1 || !saleProductUnits.some((unit) => unit.id === saleProductUnitId && unit.status === "in_stock")) {
+        setError("الجهاز ذو الرقم التسلسلي يجب أن يضاف بكمية واحدة وأن يكون متاحاً."); return;
+      }
+      if (cart.some((line) => line.productUnitId === saleProductUnitId)) {
+        setError("هذا الرقم التسلسلي موجود بالفعل في الفاتورة."); return;
+      }
+      setCart((current) => [...current, { productId: cartProduct, quantity: 1, productUnitId: saleProductUnitId }]);
+    } else {
+      const alreadyUntracked = cart.filter((line) => line.productId === cartProduct && !line.productUnitId).reduce((sum, line) => sum + line.quantity, 0);
+      if (alreadyUntracked + cartQuantity > untrackedAvailable) {
+        setError(`يجب اختيار IMEI/Serial للأجهزة المسجلة. الكمية غير المسلسلة المتاحة: ${Math.max(0, untrackedAvailable - alreadyUntracked)}.`); return;
+      }
+      setCart((current) => [...current, { productId: cartProduct, quantity: cartQuantity }]);
+    }
     setError("");
     setCartQuantity(1);
+    setSaleProductUnitId("");
   }
 
   async function completeSale() {
@@ -298,6 +331,57 @@ export default function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "تعذر إتمام عملية البيع.");
     } finally { setBusy(false); }
+  }
+
+  async function openSaleReturn(sale: RecentSale) {
+    setBusy(true);
+    try {
+      const items = await listSaleReturnableItems(sale.id);
+      const available = items.filter((item) => item.remainingQuantity > 0);
+      if (!available.length) throw new Error("تم إرجاع جميع كميات هذه الفاتورة بالفعل.");
+      setReturnableItems(available); setSaleToReturn(sale); setError("");
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر تحميل بنود المرتجع."); }
+    finally { setBusy(false); }
+  }
+
+  async function handleSaleReturn(form: HTMLFormElement) {
+    if (!saleToReturn) return;
+    const data = new FormData(form);
+    setBusy(true);
+    try {
+      const result = await processSaleReturn({
+        saleId: saleToReturn.id,
+        items: [{ saleItemId: String(data.get("saleItemId") ?? ""), quantity: Number(data.get("quantity")) }],
+        refundAmount: Number(data.get("refundAmount")),
+        refundMethod: String(data.get("refundMethod") ?? "cash") as "cash" | "card" | "transfer" | "mobile_wallet" | "other" | "customer_credit",
+        reason: String(data.get("reason") ?? ""),
+      });
+      setSaleToReturn(null);
+      await Promise.all([refreshProducts(), refreshSales(), refreshCash(), refreshReport(), refreshAccounting()]);
+      setNotice(`تم ترحيل المرتجع ${result.returnNumber} بقيمة ${result.refundAmount.toFixed(2)} مع إعادة الكمية للمخزون.`);
+      setError("");
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر ترحيل المرتجع."); }
+    finally { setBusy(false); }
+  }
+
+  async function handleCustomerReceipt(form: HTMLFormElement) {
+    if (!customerPaymentTarget) return;
+    const data = new FormData(form); setBusy(true);
+    try {
+      await receiveCustomerPayment({ customerId: customerPaymentTarget.id, amount: Number(data.get("amount")), method: String(data.get("method") ?? "cash") as "cash" | "card" | "transfer" | "mobile_wallet" | "other", note: String(data.get("note") ?? "") });
+      setCustomerPaymentTarget(null); await refreshCustomers(); await refreshAccounting(); setNotice("تم تسجيل تحصيل العميل وتوزيعه على أقدم الفواتير المستحقة مع قيد محاسبي."); setError("");
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر تسجيل تحصيل العميل."); }
+    finally { setBusy(false); }
+  }
+
+  async function handleSupplierSettlement(form: HTMLFormElement) {
+    if (!supplierPaymentTarget) return;
+    const data = new FormData(form); setBusy(true);
+    try {
+      await paySupplier({ supplierId: supplierPaymentTarget.id, amount: Number(data.get("amount")), method: String(data.get("method") ?? "cash") as "cash" | "card" | "transfer" | "mobile_wallet" | "other", note: String(data.get("note") ?? "") });
+      setSupplierPaymentTarget(null); await refreshSuppliers(); await refreshCash(); await refreshAccounting(); setNotice("تم تسجيل سداد المورد وتوزيعه على أقدم فواتير الشراء مع قيد محاسبي."); setError("");
+    } catch (e) { setError(e instanceof Error ? e.message : "تعذر تسجيل سداد المورد."); }
+    finally { setBusy(false); }
   }
 
   async function handleCreateSupplier(form: HTMLFormElement) {
@@ -433,20 +517,21 @@ export default function App() {
         {section === "customers" && <section className="panel data-panel">
           <div className="panel-heading"><div><h3>ملف العملاء</h3><p>بيانات الاتصال وسجل التعاملات الأساسي</p></div><button className="primary-button" onClick={() => setShowCreateCustomer(true)}><Plus size={17} /> إضافة عميل</button></div>
           <div className="table-toolbar"><label className="search-box"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث باسم العميل أو رقم الهاتف" /></label><span className="result-count">{customers.length} عميل</span></div>
-          <div className="table-wrap"><table><thead><tr><th>اسم العميل</th><th>الهاتف</th><th>البريد الإلكتروني</th><th>العنوان</th><th>تاريخ التسجيل</th></tr></thead>
-            <tbody>{customers.map((c) => <tr key={c.id}><td><strong>{c.name}</strong></td><td dir="ltr">{c.phone || "—"}</td><td dir="ltr">{c.email || "—"}</td><td>{c.address || "—"}</td><td>{new Date(c.createdAt).toLocaleDateString("ar")}</td></tr>)}</tbody>
+          <div className="table-wrap"><table><thead><tr><th>اسم العميل</th><th>الهاتف</th><th>البريد الإلكتروني</th><th>العنوان</th><th>تاريخ التسجيل</th><th>الرصيد المستحق</th><th>إجراء</th></tr></thead>
+            <tbody>{customers.map((c) => <tr key={c.id}><td><strong>{c.name}</strong></td><td dir="ltr">{c.phone || "—"}</td><td dir="ltr">{c.email || "—"}</td><td>{c.address || "—"}</td><td>{new Date(c.createdAt).toLocaleDateString("ar")}</td><td>{(customerBalances.find((b)=>b.id===c.id)?.balance ?? 0).toFixed(2)}</td><td><button className="text-button" disabled={(customerBalances.find((b)=>b.id===c.id)?.balance ?? 0)<=0} onClick={()=>setCustomerPaymentTarget(customerBalances.find((b)=>b.id===c.id) ?? null)}>تحصيل</button></td></tr>)}</tbody>
           </table>{customers.length === 0 && <div className="table-empty">لا توجد بيانات عملاء. أضف أول عميل للبدء.</div>}</div>
         </section>}
 
         {section === "sales" && <section className="sales-layout">
           <div className="panel data-panel"><div className="panel-heading"><div><h3>نقطة البيع</h3><p>أنشئ فاتورة مع التحقق من المخزون قبل الترحيل</p></div><Receipt size={20} /></div>
             <div className="form-grid">
-              <label className="field"><span>المنتج</span><select value={cartProduct} onChange={(e) => setCartProduct(e.target.value)}><option value="">اختر منتجاً</option>{products.filter((p) => p.status === "active" && p.quantity > 0).map((p) => <option key={p.id} value={p.id}>{p.name} — المتاح {p.quantity}</option>)}</select></label>
+              <label className="field"><span>المنتج</span><select value={cartProduct} onChange={(e) => void handleSaleProductChange(e.target.value)}><option value="">اختر منتجاً</option>{products.filter((p) => p.status === "active" && p.quantity > 0).map((p) => <option key={p.id} value={p.id}>{p.name} — المتاح {p.quantity}</option>)}</select></label>
               <label className="field"><span>الكمية</span><input type="number" min="1" step="1" value={cartQuantity} onChange={(e) => setCartQuantity(Number(e.target.value))} /></label>
             </div>
+            {saleProductUnits.some((unit) => unit.status === "in_stock") && <label className="field"><span>IMEI / الرقم التسلسلي (اختياري عند بيع جهاز مسجل)</span><select value={saleProductUnitId} onChange={(e)=>{setSaleProductUnitId(e.target.value);if(e.target.value)setCartQuantity(1);}}><option value="">مخزون غير مسجل تسلسلياً</option>{saleProductUnits.filter((unit)=>unit.status === "in_stock").map((unit)=><option key={unit.id} value={unit.id}>{unit.imei || unit.serialNumber} — {unit.condition === "new" ? "جديد" : unit.condition === "used" ? "مستعمل" : "مجدد"}</option>)}</select></label>}
             <button className="secondary-button add-line-button" onClick={addCartLine}><Plus size={16} /> إضافة إلى الفاتورة</button>
-            <div className="table-wrap"><table><thead><tr><th>الصنف</th><th>السعر</th><th>الكمية</th><th>الإجمالي</th><th></th></tr></thead><tbody>
-              {cart.map((line) => { const p = products.find((item) => item.id === line.productId); return p ? <tr key={line.productId}><td>{p.name}</td><td>{p.salePrice.toFixed(2)}</td><td>{line.quantity}</td><td>{(p.salePrice * line.quantity).toFixed(2)}</td><td><button className="text-button" onClick={() => setCart((current) => current.filter((item) => item.productId !== line.productId))}>إزالة</button></td></tr> : null; })}
+            <div className="table-wrap"><table><thead><tr><th>الصنف</th><th>IMEI / Serial</th><th>السعر</th><th>الكمية</th><th>الإجمالي</th><th></th></tr></thead><tbody>
+              {cart.map((line, index) => { const p = products.find((item) => item.id === line.productId); return p ? <tr key={`${line.productId}-${line.productUnitId ?? "bulk"}-${index}`}><td>{p.name}</td><td dir="ltr">{line.productUnitId ? (saleProductUnits.find((unit)=>unit.id===line.productUnitId)?.imei || saleProductUnits.find((unit)=>unit.id===line.productUnitId)?.serialNumber || "مسجل") : "—"}</td><td>{p.salePrice.toFixed(2)}</td><td>{line.quantity}</td><td>{(p.salePrice * line.quantity).toFixed(2)}</td><td><button className="text-button" onClick={() => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))}>إزالة</button></td></tr> : null; })}
             </tbody></table>{cart.length === 0 && <div className="table-empty">أضف منتجات إلى الفاتورة.</div>}</div>
           </div>
           <div className="panel checkout-panel"><h3>ملخص الفاتورة</h3>
@@ -459,12 +544,12 @@ export default function App() {
           </div>
         </section>}
 
-        {section === "sales" && <section className="panel data-panel recent-sales-panel"><div className="panel-heading"><div><h3>آخر فواتير البيع</h3><p>آخر الفواتير المسجلة محلياً</p></div></div><div className="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>التاريخ</th></tr></thead><tbody>{sales.map((sale)=><tr key={sale.id}><td dir="ltr">{sale.invoiceNumber}</td><td>{sale.customerName}</td><td>{sale.total.toFixed(2)}</td><td>{sale.paidAmount.toFixed(2)}</td><td>{(sale.total-sale.paidAmount).toFixed(2)}</td><td>{new Date(sale.createdAt).toLocaleDateString("ar")}</td></tr>)}</tbody></table>{sales.length===0&&<div className="table-empty">لا توجد فواتير بعد.</div>}</div></section>}
+        {section === "sales" && <section className="panel data-panel recent-sales-panel"><div className="panel-heading"><div><h3>آخر فواتير البيع</h3><p>آخر الفواتير المسجلة محلياً</p></div></div><div className="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody>{sales.map((sale)=><tr key={sale.id}><td dir="ltr">{sale.invoiceNumber}</td><td>{sale.customerName}</td><td>{sale.total.toFixed(2)}</td><td>{sale.paidAmount.toFixed(2)}</td><td>{(sale.total-sale.paidAmount).toFixed(2)}</td><td>{new Date(sale.createdAt).toLocaleDateString("ar")}</td><td><button className="text-button" disabled={busy} onClick={()=>void openSaleReturn(sale)}>مرتجع</button></td></tr>)}</tbody></table>{sales.length===0&&<div className="table-empty">لا توجد فواتير بعد.</div>}</div></section>}
 
         {section === "suppliers" && <section className="panel data-panel">
           <div className="panel-heading"><div><h3>ملف الموردين</h3><p>إدارة جهات التوريد وبيانات التواصل</p></div><button className="primary-button" onClick={() => setShowCreateSupplier(true)}><Plus size={17} /> إضافة مورد</button></div>
           <div className="table-toolbar"><label className="search-box"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث باسم المورد أو الهاتف" /></label><span className="result-count">{suppliers.length} مورد</span></div>
-          <div className="table-wrap"><table><thead><tr><th>المورد</th><th>الهاتف</th><th>البريد</th><th>الرقم الضريبي</th><th>العنوان</th></tr></thead><tbody>{suppliers.map((v) => <tr key={v.id}><td><strong>{v.name}</strong></td><td dir="ltr">{v.phone || "—"}</td><td dir="ltr">{v.email || "—"}</td><td dir="ltr">{v.taxNumber || "—"}</td><td>{v.address || "—"}</td></tr>)}</tbody></table>{suppliers.length === 0 && <div className="table-empty">لا يوجد موردون مسجلون.</div>}</div>
+          <div className="table-wrap"><table><thead><tr><th>المورد</th><th>الهاتف</th><th>البريد</th><th>الرقم الضريبي</th><th>العنوان</th><th>الرصيد المستحق</th><th>إجراء</th></tr></thead><tbody>{suppliers.map((v) => <tr key={v.id}><td><strong>{v.name}</strong></td><td dir="ltr">{v.phone || "—"}</td><td dir="ltr">{v.email || "—"}</td><td dir="ltr">{v.taxNumber || "—"}</td><td>{v.address || "—"}</td><td>{(supplierBalances.find((b)=>b.id===v.id)?.balance ?? 0).toFixed(2)}</td><td><button className="text-button" disabled={(supplierBalances.find((b)=>b.id===v.id)?.balance ?? 0)<=0} onClick={()=>setSupplierPaymentTarget(supplierBalances.find((b)=>b.id===v.id) ?? null)}>سداد</button></td></tr>)}</tbody></table>{suppliers.length === 0 && <div className="table-empty">لا يوجد موردون مسجلون.</div>}</div>
         </section>}
 
         {section === "purchases" && <section className="sales-layout">
@@ -515,6 +600,22 @@ export default function App() {
       </Modal>}
       {showCreateCustomer && <Modal title="إضافة عميل" subtitle="بيانات الاتصال الأساسية" onClose={() => setShowCreateCustomer(false)} onSubmit={handleCreateCustomer} busy={busy}>
         <div className="form-grid"><Field name="name" label="اسم العميل" required /><Field name="phone" label="رقم الهاتف" /><Field name="email" label="البريد الإلكتروني" type="email" /><Field name="address" label="العنوان" /><Field name="notes" label="ملاحظات" /></div>
+      </Modal>}
+      {customerPaymentTarget && <Modal title={`تحصيل من العميل: ${customerPaymentTarget.name}`} subtitle={`الرصيد المستحق: ${customerPaymentTarget.balance.toFixed(2)}`} onClose={()=>setCustomerPaymentTarget(null)} onSubmit={handleCustomerReceipt} busy={busy}>
+        <div className="form-grid"><Field name="amount" label="مبلغ التحصيل" type="number" min="0.01" step="0.01" required/><label className="field"><span>طريقة التحصيل</span><select name="method"><option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option><option value="mobile_wallet">محفظة إلكترونية</option><option value="other">أخرى</option></select></label><Field name="note" label="ملاحظات / مرجع"/></div><p className="muted-help">سيتم توزيع المبلغ آلياً على أقدم فواتير العميل المستحقة. لا يسمح النظام بتجاوز إجمالي الرصيد.</p>
+      </Modal>}
+      {supplierPaymentTarget && <Modal title={`سداد للمورد: ${supplierPaymentTarget.name}`} subtitle={`الرصيد المستحق للمورد: ${supplierPaymentTarget.balance.toFixed(2)}`} onClose={()=>setSupplierPaymentTarget(null)} onSubmit={handleSupplierSettlement} busy={busy}>
+        <div className="form-grid"><Field name="amount" label="مبلغ السداد" type="number" min="0.01" step="0.01" required/><label className="field"><span>طريقة السداد</span><select name="method"><option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option><option value="mobile_wallet">محفظة إلكترونية</option><option value="other">أخرى</option></select></label><Field name="note" label="ملاحظات / مرجع"/></div><p className="muted-help">سيتم توزيع المبلغ آلياً على أقدم فواتير المورد المستحقة. السداد النقدي يتطلب رصيداً كافياً في وردية مفتوحة.</p>
+      </Modal>}
+      {saleToReturn && <Modal title={`مرتجع فاتورة ${saleToReturn.invoiceNumber}`} subtitle="اختر الصنف والكمية وأدخل مبلغ الاسترداد وسبب الإرجاع" onClose={() => setSaleToReturn(null)} onSubmit={handleSaleReturn} busy={busy}>
+        <div className="form-grid">
+          <label className="field"><span>الصنف المرتجع</span><select name="saleItemId" required>{returnableItems.map((item)=><option key={item.saleItemId} value={item.saleItemId}>{item.productName} — المتبقي {item.remainingQuantity}</option>)}</select></label>
+          <label className="field"><span>الكمية</span><input name="quantity" type="number" min="1" max={Math.max(...returnableItems.map((item)=>item.remainingQuantity))} defaultValue="1" required/></label>
+          <Field name="refundAmount" label="مبلغ الاسترداد" type="number" min="0.01" step="0.01" required/>
+          <label className="field"><span>طريقة الاسترداد</span><select name="refundMethod"><option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option><option value="mobile_wallet">محفظة إلكترونية</option><option value="other">أخرى</option><option value="customer_credit">خصم من رصيد العميل المستحق</option></select></label>
+          <Field name="reason" label="سبب الإرجاع" required/>
+        </div>
+        <p className="muted-help">سيتم التحقق من الكميات المستردة سابقاً وسقف الاسترداد بعد خصم الفاتورة وضريبتها، وتسجيل حركة مخزون وقيد محاسبي عكسي.</p>
       </Modal>}
       {stockProduct && <Modal title={`تعديل مخزون: ${stockProduct.name}`} subtitle={`الرصيد الحالي: ${stockProduct.quantity}`} onClose={() => setStockProduct(null)} onSubmit={handleAdjustStock} busy={busy}>
         <div className="form-grid"><Field name="quantityDelta" label="فرق الكمية (+ إضافة / - سحب)" type="number" step="1" required/><Field name="reason" label="سبب التعديل" required/></div>

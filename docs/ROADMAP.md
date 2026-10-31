@@ -23,13 +23,16 @@
 - [x] Purchase receiving, stock updates, and weighted-average cost update.
 - [x] POS checkout, stock checks, payments, and transactional posting.
 - [x] Cash sessions and shift reconciliation.
+- [x] Customer receipts and supplier payments allocated to oldest open invoices with immutable allocation rows.
 - [ ] Supplier statements and purchase returns.
-- [ ] Sales returns, void/credit-note controls, invoice printing, and tax invoice review.
+- [x] Partial sales return workflow with quantity limits, stock restoration, refund payment, and compensating journal.
+- [ ] Void/credit-note controls, purchase returns, invoice printing, and tax invoice review.
 - [ ] Price lists, discounts, promotions, and payment allocation.
 
 ## Phase 3 — Customers, repairs, warranty
 - [x] Customer records.
 - [x] Repair intake and status history.
+- [x] Customer outstanding balance and receipt allocation.
 - [ ] Customer account statements and receivables aging.
 - [ ] Spare-parts consumption and repair costing.
 - [ ] Warranty claims, device handover, and service history.
@@ -39,7 +42,8 @@
 - [x] Expense voucher with payment record.
 - [x] Seeded chart of accounts, balanced journal posting for sales/purchases/expenses, immutable posted entries, and trial balance.
 - [ ] Manual journal-entry UI, account configuration, and period close.
-- [ ] Receivables/payables subledgers and settlement workflows.
+- [x] Initial customer/supplier settlement allocations and subledger balances.
+- [ ] Receivables/payables aging, advances, and full reconciliation workflows.
 - [ ] Tax ledger, cash flow, and reconciled financial statements.
 - [ ] Profit reporting with returns, discounts, tax, and accounting adjustments.
 

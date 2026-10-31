@@ -36,15 +36,15 @@ This is an initial operational slice, not a production-ready ERP/POS. Do not ent
 | INV-01 | Serialized devices and IMEI/serial validation | IMEI validation + registration service; full lifecycle pending | P1 | Unique identifiers, device lifecycle, and tests |
 | INV-02 | Inventory ledger, adjustments, reconciliation | Opening ledger + adjustments + immutable movements; stocktake pending | P1 | Transactional movements, immutable history, balance reconciliation |
 | INV-03 | Barcode generation and label printing | Pending | P2 | Printable labels and tested barcode payloads |
-| PUR-01 | Suppliers and purchasing | Supplier records + receiving + weighted-average cost | P1 | Purchase workflow updates stock and supplier balances transactionally |
+| PUR-01 | Suppliers and purchasing | Supplier records + receiving + weighted-average cost + supplier settlement allocation | P1 | Purchase workflow updates stock and supplier balances transactionally |
 | POS-01 | POS cart and checkout | Transactional checkout + stock decrement + invoice reference | P0 | Atomic checkout, stock checks, price snapshots, and failure rollback |
-| POS-02 | Payments, invoices, returns, void controls | Pending | P0 | Payment allocation, invoice numbering, return controls, audit trail |
+| POS-02 | Payments, invoices, returns, void controls | Partial sales returns/refunds and compensating journal; voids/print/tax invoice pending | P0 | Payment allocation, invoice numbering, return controls, audit trail |
 | CASH-01 | Cash drawer and shift closing | Session opening/closing + exact cash-session payment attribution | P1 | Opening/closing balances and variance report |
 | CRM-01 | Customers and account statements | Pending | P1 | Customer CRUD, balances, ledger, statement |
 | SRV-01 | Repair intake and status history | Intake + allowed transitions + history | P1 | Repair ticket lifecycle and history |
 | SRV-02 | Spare-parts consumption and warranty | Pending | P2 | Stock consumption and warranty claim traceability |
 | ACC-01 | Chart of accounts and journal entries | Seeded chart + balanced immutable postings for sales/purchases/expenses + trial balance | P1 | Balanced double-entry postings; exact decimal arithmetic |
-| ACC-02 | Expenses, income, receivables, payables | Expense voucher and payment journal; settlement subledgers pending | P1 | Transactional vouchers and reconciled balances |
+| ACC-02 | Expenses, income, receivables, payables | Expense journal + initial customer/supplier settlement allocations | P1 | Transactional vouchers and reconciled balances |
 | RPT-01 | Profit, cash-flow, inventory reports | Indicative sales/COGS/expense/inventory summary; reconciliation pending | P2 | Reports reconcile to source ledgers |
 | SEC-01 | Authentication and RBAC | Pending | P0 before multi-user use | Permission matrix and negative authorization tests |
 | SEC-02 | Audit review screens | Pending | P1 | Searchable immutable audit events |
@@ -126,3 +126,5 @@ To reduce merge conflicts, use these proposed lanes:
 - 2026-11-01: Added `scripts/verify-migrations.py`; local verification passed for migration SQL, opening-stock trigger, immutable ledgers, SKU uniqueness, and cash-session attribution.
 - 2026-11-01: Local cloud-box verification passed: typecheck, lint, 10 Vitest tests, Vite production build, and SQLite migration verifier. Native Windows build remains unverified because this Linux box has no Rust toolchain.
 - 2026-11-01: Added migration v3 with a seeded chart of accounts, balanced journal posting guards, and immutable posted journal entries/lines. Sales, purchases, and expenses now post balanced double-entry journals; an initial trial-balance screen is available.
+- 2026-11-01: Added migration v4 and an initial partial sales-return workflow. Returns enforce remaining sold quantities and proportional invoice refund caps, restore stock, attribute cash refunds to an open cash session, and post compensating journal entries.
+- 2026-11-01: Added migration v5 and settlement workflows. Customer receipts and supplier payments are allocated oldest-invoice-first, create immutable allocation records and balanced journal entries, and update calculated party balances without editing posted invoices.

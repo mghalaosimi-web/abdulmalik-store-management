@@ -17,16 +17,21 @@ export async function getFinancialSummary(fromDate: string, toDate: string): Pro
   }
   const db = await getDatabase();
   const sales = await db.select<Array<{ count: number; gross_sales: number; net_sales: number }>>(
-    `SELECT COUNT(*) AS count, COALESCE(SUM(total), 0) AS gross_sales,
-            COALESCE(SUM(subtotal - discount), 0) AS net_sales
-     FROM sales WHERE status = 'posted' AND date(created_at) BETWEEN date(?) AND date(?)`,
-    [fromDate, toDate],
+    `SELECT
+       (SELECT COUNT(*) FROM sales WHERE status = 'posted' AND date(created_at) BETWEEN date(?) AND date(?)) AS count,
+       (SELECT COALESCE(SUM(total), 0) FROM sales WHERE status = 'posted' AND date(created_at) BETWEEN date(?) AND date(?))
+         - (SELECT COALESCE(SUM(refund_amount), 0) FROM sale_returns WHERE date(created_at) BETWEEN date(?) AND date(?)) AS gross_sales,
+       (SELECT COALESCE(SUM(subtotal - discount), 0) FROM sales WHERE status = 'posted' AND date(created_at) BETWEEN date(?) AND date(?))
+         - (SELECT COALESCE(SUM(refund_amount - tax_refund_amount), 0) FROM sale_returns WHERE date(created_at) BETWEEN date(?) AND date(?)) AS net_sales`,
+    [fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate],
   );
   const costs = await db.select<Array<{ cost: number }>>(
-    `SELECT COALESCE(SUM(si.quantity * si.unit_cost), 0) AS cost
-     FROM sale_items si JOIN sales s ON s.id = si.sale_id
-     WHERE s.status = 'posted' AND date(s.created_at) BETWEEN date(?) AND date(?)`,
-    [fromDate, toDate],
+    `SELECT
+       (SELECT COALESCE(SUM(si.quantity * si.unit_cost), 0)
+        FROM sale_items si JOIN sales s ON s.id = si.sale_id
+        WHERE s.status = 'posted' AND date(s.created_at) BETWEEN date(?) AND date(?))
+       - (SELECT COALESCE(SUM(cost_returned), 0) FROM sale_returns WHERE date(created_at) BETWEEN date(?) AND date(?)) AS cost`,
+    [fromDate, toDate, fromDate, toDate],
   );
   const expenses = await db.select<Array<{ amount: number }>>(
     "SELECT COALESCE(SUM(amount), 0) AS amount FROM expenses WHERE date(created_at) BETWEEN date(?) AND date(?)",

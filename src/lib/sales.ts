@@ -5,6 +5,7 @@ import { postJournalEntryInTransaction, type JournalLineInput } from "./accounti
 export interface SaleLineInput {
   productId: string;
   quantity: number;
+  productUnitId?: string;
   discount?: number;
 }
 
@@ -55,12 +56,20 @@ export async function checkoutSale(input: CheckoutInput): Promise<CheckoutResult
     throw new Error("نسبة الضريبة غير صالحة.");
   }
 
-  const grouped = new Map<string, number>();
+  const grouped = new Map<string, { quantity: number; untrackedQuantity: number; unitIds: string[] }>();
+  const selectedUnitIds = new Set<string>();
   for (const line of input.lines) {
     if (!line.productId || !Number.isSafeInteger(line.quantity) || line.quantity <= 0) {
       throw new Error("تأكد من صحة المنتجات والكميات في الفاتورة.");
     }
-    grouped.set(line.productId, (grouped.get(line.productId) ?? 0) + line.quantity);
+    if (line.productUnitId && line.quantity !== 1) throw new Error("كل جهاز يحمل IMEI/Serial يجب إضافته كسطر مستقل بكمية واحدة.");
+    if (line.productUnitId && selectedUnitIds.has(line.productUnitId)) throw new Error("لا يمكن بيع الوحدة التسلسلية نفسها مرتين في الفاتورة.");
+    if (line.productUnitId) selectedUnitIds.add(line.productUnitId);
+    const current = grouped.get(line.productId) ?? { quantity: 0, untrackedQuantity: 0, unitIds: [] };
+    current.quantity += line.quantity;
+    if (line.productUnitId) current.unitIds.push(line.productUnitId);
+    else current.untrackedQuantity += line.quantity;
+    grouped.set(line.productId, current);
   }
 
   const db = await getDatabase();
@@ -70,11 +79,11 @@ export async function checkoutSale(input: CheckoutInput): Promise<CheckoutResult
   const invoiceDiscount = toMinorUnits(input.invoiceDiscount ?? 0);
   let subtotalMinor = 0;
   let costOfGoodsMinor = 0;
-  const rows: Array<{ product: ProductForSale; quantity: number; lineTotalMinor: number }> = [];
+  const rows: Array<{ product: ProductForSale; quantity: number; untrackedQuantity: number; unitIds: string[]; lineTotalMinor: number }> = [];
 
   await db.execute("BEGIN IMMEDIATE");
   try {
-    for (const [productId, quantity] of grouped) {
+    for (const [productId, requested] of grouped) {
       const products = await db.select<ProductForSale[]>(
         `SELECT id, sku, name, cost_price, sale_price, quantity, status
          FROM products WHERE id = ? LIMIT 1`,
@@ -82,12 +91,21 @@ export async function checkoutSale(input: CheckoutInput): Promise<CheckoutResult
       );
       const product = products[0];
       if (!product || product.status !== "active") throw new Error("أحد المنتجات غير موجود أو غير نشط.");
-      if (product.quantity < quantity) throw new Error(`الكمية غير كافية للمنتج: ${product.name}.`);
-      const lineTotalMinor = calculateLineTotal(product.sale_price, quantity, 0);
+      if (product.quantity < requested.quantity) throw new Error(`الكمية غير كافية للمنتج: ${product.name}.`);
+      const units = await db.select<Array<{ id: string; status: string }>>(
+        "SELECT id, status FROM product_units WHERE product_id = ? AND status <> 'sold'", [productId],
+      );
+      const unitById = new Map(units.map((unit) => [unit.id, unit]));
+      for (const unitId of requested.unitIds) {
+        if (unitById.get(unitId)?.status !== "in_stock") throw new Error(`الجهاز التسلسلي المحدد للمنتج ${product.name} غير متاح للبيع.`);
+      }
+      const untrackedAvailable = product.quantity - units.length;
+      if (requested.untrackedQuantity > untrackedAvailable) throw new Error(`يجب اختيار IMEI/Serial لكل جهاز مسجل؛ المتاح غير المسلسل للمنتج ${product.name}: ${untrackedAvailable}.`);
+      const lineTotalMinor = calculateLineTotal(product.sale_price, requested.quantity, 0);
       subtotalMinor += lineTotalMinor;
-      costOfGoodsMinor += toMinorUnits(product.cost_price) * quantity;
+      costOfGoodsMinor += toMinorUnits(product.cost_price) * requested.quantity;
       if (!Number.isSafeInteger(subtotalMinor) || !Number.isSafeInteger(costOfGoodsMinor)) throw new Error("إجمالي الفاتورة أو التكلفة أكبر من النطاق المسموح.");
-      rows.push({ product, quantity, lineTotalMinor });
+      rows.push({ product, quantity: requested.quantity, untrackedQuantity: requested.untrackedQuantity, unitIds: requested.unitIds, lineTotalMinor });
     }
 
     if (invoiceDiscount > subtotalMinor) throw new Error("خصم الفاتورة يتجاوز قيمة المنتجات.");
@@ -104,11 +122,24 @@ export async function checkoutSale(input: CheckoutInput): Promise<CheckoutResult
     );
 
     for (const row of rows) {
-      await db.execute(
-        `INSERT INTO sale_items(id, sale_id, product_id, quantity, unit_price, unit_cost, discount, line_total)
-         VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
-        [crypto.randomUUID(), saleId, row.product.id, row.quantity, fromMinorUnits(toMinorUnits(row.product.sale_price)), fromMinorUnits(toMinorUnits(row.product.cost_price)), fromMinorUnits(row.lineTotalMinor)],
-      );
+      const unitPrice = fromMinorUnits(toMinorUnits(row.product.sale_price));
+      const unitCost = fromMinorUnits(toMinorUnits(row.product.cost_price));
+      if (row.untrackedQuantity > 0) {
+        await db.execute(
+          `INSERT INTO sale_items(id, sale_id, product_id, quantity, unit_price, unit_cost, discount, line_total)
+           VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+          [crypto.randomUUID(), saleId, row.product.id, row.untrackedQuantity, unitPrice, unitCost, fromMinorUnits(toMinorUnits(unitPrice) * row.untrackedQuantity)],
+        );
+      }
+      for (const unitId of row.unitIds) {
+        await db.execute(
+          `INSERT INTO sale_items(id, sale_id, product_id, product_unit_id, quantity, unit_price, unit_cost, discount, line_total)
+           VALUES (?, ?, ?, ?, 1, ?, ?, 0, ?)`,
+          [crypto.randomUUID(), saleId, row.product.id, unitId, unitPrice, unitCost, unitPrice],
+        );
+        const unitUpdate = await db.execute("UPDATE product_units SET status = 'sold' WHERE id = ? AND product_id = ? AND status = 'in_stock'", [unitId, row.product.id]);
+        if (unitUpdate.rowsAffected !== 1) throw new Error(`تعذر حجز/بيع الرقم التسلسلي للمنتج: ${row.product.name}.`);
+      }
       const updated = await db.execute(
         "UPDATE products SET quantity = quantity - ?, updated_at = datetime('now') WHERE id = ? AND quantity >= ?",
         [row.quantity, row.product.id, row.quantity],

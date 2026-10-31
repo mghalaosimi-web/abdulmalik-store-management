@@ -131,7 +131,7 @@ export async function registerProductUnit(input: {
     const products = await db.select<Array<{ quantity: number }>>("SELECT quantity FROM products WHERE id = ? LIMIT 1", [input.productId]);
     if (!products[0] || products[0].quantity < 1) throw new Error("لا يوجد رصيد مخزون لهذا المنتج لربط جهاز متسلسل به.");
     const units = await db.select<Array<{ count: number }>>(
-      "SELECT COUNT(*) AS count FROM product_units WHERE product_id = ? AND status = 'in_stock'", [input.productId],
+      "SELECT COUNT(*) AS count FROM product_units WHERE product_id = ? AND status <> 'sold'", [input.productId],
     );
     if ((units[0]?.count ?? 0) >= products[0].quantity) throw new Error("عدد الأجهزة المسجلة تسلسلياً وصل إلى رصيد المخزون؛ لا يمكن إضافة وحدة زائدة.");
     await db.execute(

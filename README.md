@@ -22,10 +22,11 @@ Do not enter live commercial data until the release gates in `docs/SECURITY.md` 
 - Product catalog create/list, validation, opening stock ledger entry, stock adjustments, ledger reconciliation, and low-stock indicators.
 - IMEI validation using the Luhn checksum and serial/IMEI unit registration.
 - Customer and supplier records.
-- POS checkout with stock checks, immutable stock movements, payment recording, invoice references, and a single database transaction.
+- POS checkout and partial sales returns with stock checks/restoration, immutable stock movements, payment recording, invoice references, and compensating journal entries in database transactions.
 - Purchase receiving with stock increases and weighted-average cost updates.
 - Cash drawer opening/closing with payments attributed to a specific cash session.
 - Expense vouchers with linked payment movements.
+- Customer receipts and supplier payments allocated to oldest outstanding invoices.
 - Repair intake and validated status transitions with status history.
 - Initial double-entry journal posting for sales, purchases, and expenses, plus a trial-balance screen.
 - Basic sales, cost-of-goods, expenses, and inventory valuation report.
