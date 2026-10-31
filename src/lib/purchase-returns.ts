@@ -141,6 +141,9 @@ export async function processPurchaseReturn(input: PurchaseReturnInput): Promise
     }
     if (returnRows.length !== requested.size) throw new Error("أحد بنود فاتورة الشراء غير موجود.");
     if (!returnRows.length) throw new Error("لا توجد كميات صالحة للإرجاع.");
+    if (![currentReturnBaseMinor, previousReturnBaseMinor, inventoryValueMinor].every(Number.isSafeInteger)) {
+      throw new Error("قيمة أو تكلفة مرتجع المشتريات أكبر من النطاق المسموح.");
+    }
 
     const priorReturns = await db.select<Array<{
       refund_amount: number; supplier_credits: number; cash_refunds: number;
