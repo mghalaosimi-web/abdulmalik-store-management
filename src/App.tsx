@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Activity, BarChart3, Boxes, BriefcaseBusiness, ClipboardList, CreditCard, BookOpen,
+  Activity, BarChart3, Boxes, ClipboardList, CreditCard, BookOpen,
   Headphones, LayoutDashboard, Package, Plus, Search, Settings, ShoppingCart,
   Users, Wrench, Wifi, X, Receipt, RefreshCw, Truck, Wallet, ShoppingBasket, MessageCircle, Phone, ExternalLink,
 } from "lucide-react";
@@ -10,7 +10,7 @@ import { createCustomer, listCustomers, type Customer } from "./lib/customers";
 import { checkoutSale, listRecentSales, type RecentSale } from "./lib/sales";
 import { createRepair, listRepairs, transitionRepair, type RepairRecord, type RepairStatus } from "./lib/repairs";
 import type { Product } from "./types";
-import storeLogo from "./assets/IMG-20261031-WA0049.jpg";
+const storeLogo = new URL("./assets/IMG-20261031-WA0049.jpg", import.meta.url).href;
 import { createSupplier, listSuppliers, type Supplier } from "./lib/suppliers";
 import { receivePurchase, listRecentPurchases, type RecentPurchase, type PurchaseLineInput } from "./lib/purchases";
 import { listPurchaseReturnableItems, processPurchaseReturn, type ReturnablePurchaseItem } from "./lib/purchase-returns";
