@@ -17,7 +17,7 @@ Last updated: 2026-11-01
 | Cash/expenses | Open/close cash session, cash movement attribution, expenses | Multi-register support, approvals, expense categories, reconciliation reports |
 | Repairs | Intake, validated status transitions, immutable status history | Technician workflow, parts consumption, labor, warranty, customer notifications |
 | Accounting | Seeded chart of accounts, balanced immutable journal posting for sales/purchases/expenses/returns and customer/supplier settlements, trial balance | Manual journal UI, subledger-to-control-account reconciliation, aging, period close, reconciled tax reports |
-| Reports | Initial sales/COGS/expense/inventory summary with return deductions | Journal-reconciled statements, aging, audited exports |
+| Reports | Initial ledger-derived profit summary covering sales returns, COGS, purchase-return variance, expenses, and inventory value | Full financial statements, aging, audited exports, depreciation/accruals |
 | Security | Parameterized SQL, constrained Tauri capabilities, append-only ledgers | Login, password hashing, RBAC, actor identity, session timeout, threat review |
 | Operations | CI workflow, lockfile, SQLite migration verifier | Backup/restore, disaster recovery, update/signing, release monitoring |
 
@@ -27,7 +27,7 @@ Last updated: 2026-11-01
 2. The initial currency setting is SAR for this Saudi-project scope. The owner must confirm the store's legal operating country, currency, tax registration, and invoice requirements before live data is entered.
 3. Sales, purchases, expenses, sales returns, purchase returns, and customer/supplier settlements create balanced double-entry journal entries using seeded account codes. Manual journal UI, full subledger reconciliation, and period closing are still missing.
 4. Tax is disabled by default. No ZATCA, e-invoicing, telecom, payment, or other regulatory compliance is claimed.
-5. The operational profit report is indicative and return-adjusted, but it does not yet reconcile journal entries, full tax treatment, supplier discounts, depreciation, or all accruals.
+5. The initial profit report derives sales, returns, COGS, purchase-return variance, and operating expenses from selected posted ledger accounts. It is not a complete set of financial statements and does not yet cover full tax treatment, depreciation, or all accruals.
 6. Cash payments are linked to a cash session. Card/transfer/wallet transactions are not part of physical cash reconciliation.
 7. A registered IMEI/serial unit is currently attached to an existing product balance; registering a unit does not increment stock. Avoid double-counting units and aggregate stock.
 8. Posted sales, purchases, expenses, stock movements, payments, and audit events need compensating operations for corrections. Partial sales/purchase returns are implemented; sale voids and full end-to-end return acceptance tests remain outstanding.

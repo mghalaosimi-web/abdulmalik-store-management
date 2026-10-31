@@ -30,7 +30,7 @@ Do not enter live commercial data until the release gates in `docs/SECURITY.md` 
 - Partial purchase returns with current-stock protection and supplier credit/refund accounting.
 - Repair intake and validated status transitions with status history.
 - Initial double-entry journal posting for sales, purchases, and expenses, plus a trial-balance screen.
-- Basic sales, cost-of-goods, expenses, and inventory valuation report.
+- Initial ledger-derived profit summary covering sales returns, cost of goods sold, purchase-return variance, expenses, and inventory valuation.
 
 These are first operational implementations, not yet fully accepted commercial modules. See `docs/IMPLEMENTATION-STATUS.md` for limitations and remaining work.
 

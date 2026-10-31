@@ -39,7 +39,7 @@
 - [ ] Warranty claims, device handover, and service history.
 
 ## Phase 4 — Accounting and reporting
-- [x] Initial operational sales/cost/expense/inventory report.
+- [x] Initial ledger-derived profit report for sales returns, COGS, purchase-return variance, expenses, and inventory value.
 - [x] Expense voucher with payment record.
 - [x] Seeded chart of accounts, balanced journal posting for sales/purchases/expenses, immutable posted entries, and trial balance.
 - [ ] Manual journal-entry UI, account configuration, and period close.
