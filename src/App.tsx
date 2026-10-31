@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity, BarChart3, Boxes, BriefcaseBusiness, ClipboardList, CreditCard, BookOpen,
   Headphones, LayoutDashboard, Package, Plus, Search, Settings, ShoppingCart,
-  Users, Wrench, Wifi, X, Receipt, RefreshCw, Truck, Wallet, ShoppingBasket,
+  Users, Wrench, Wifi, X, Receipt, RefreshCw, Truck, Wallet, ShoppingBasket, MessageCircle, Phone, ExternalLink,
 } from "lucide-react";
 import { adjustStock, createProduct, listProductUnits, listProducts, reconcileStock, registerProductUnit, type ProductUnit, type StockDiscrepancy } from "./lib/products";
 import { isDesktopRuntime } from "./lib/database";
@@ -20,7 +20,7 @@ import { listSaleReturnableItems, processSaleReturn, type ReturnableSaleItem } f
 import { listCustomerBalances, listSupplierBalances, receiveCustomerPayment, paySupplier, type PartyBalance } from "./lib/settlements";
 import { getTrialBalance, listRecentJournalEntries, type TrialBalanceRow, type JournalEntrySummary } from "./lib/accounting";
 
-type Section = "dashboard" | "products" | "sales" | "purchases" | "customers" | "suppliers" | "repairs" | "cash" | "accounting" | "reports" | "settings";
+type Section = "dashboard" | "products" | "sales" | "purchases" | "customers" | "suppliers" | "repairs" | "cash" | "accounting" | "reports" | "settings" | "development";
 const navigation: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "الرئيسية", icon: LayoutDashboard },
   { id: "products", label: "المنتجات والمخزون", icon: Package },
@@ -33,6 +33,7 @@ const navigation: { id: Section; label: string; icon: typeof LayoutDashboard }[]
   { id: "accounting", label: "المحاسبة ودفتر الأستاذ", icon: BookOpen },
   { id: "reports", label: "التقارير", icon: BarChart3 },
   { id: "settings", label: "الإعدادات", icon: Settings },
+  { id: "development", label: "التطوير والدعم الفني", icon: Headphones },
 ];
 
 interface CartLine { productId: string; quantity: number; productUnitId?: string }
@@ -534,6 +535,11 @@ export default function App() {
                 <div className="empty-state"><div className="empty-icon"><Activity size={23} /></div><strong>{lowStock ? `${lowStock} منتجات منخفضة المخزون` : "لا توجد تنبيهات مخزون"}</strong><span>راجع المنتجات التي وصلت إلى حد إعادة الطلب.</span></div>
               </div>
             </section>
+            <section className="development-cta">
+              <div className="development-cta-icon"><MessageCircle size={22}/></div>
+              <div className="development-cta-copy"><strong>تحتاج إلى ميزة جديدة أو تطوير خاص لمتجرك؟</strong><span>تواصل مع العصيمي للبرمجيات والحلول التقنية المتطورة لمناقشة احتياجك والاتفاق على التطوير.</span></div>
+              <a className="primary-button" href="https://wa.me/message/NEVZVG5DC5CEA1" target="_blank" rel="noreferrer">تواصل عبر واتساب <ExternalLink size={15}/></a>
+            </section>
           </>
         )}
 
@@ -626,6 +632,37 @@ export default function App() {
           <p className="muted-help">هذا تقرير تشغيلي أولي وليس قوائم مالية معتمدة أو إقراراً ضريبياً. لا يشمل بعد التسويات المحاسبية والمرتجعات والضرائب القابلة للاسترداد.</p>
         </section>}
         {section === "settings" && <section className="panel placeholder-panel"><div className="empty-icon"><ClipboardList size={25}/></div><h3>الإعدادات</h3><p>إعدادات المتجر والضريبة والمستخدمين والنسخ الاحتياطي تحتاج إلى استكمال قبل الاستخدام التجاري.</p><span className="subtle-tag">قيد التطوير</span></section>}
+        {section === "development" && <section className="development-page">
+          <div className="development-hero">
+            <div className="development-hero-icon"><Headphones size={30}/></div>
+            <span className="development-kicker">التطوير والدعم الفني</span>
+            <h2>نطوّر النظام ليناسب طريقة عملك</h2>
+            <p>هل تحتاج إلى إضافة ميزة جديدة، أو تعديل سير العمل، أو تطوير تقرير خاص بمتجرك؟ تواصل معنا لمناقشة المتطلبات والاتفاق على نطاق العمل والتكلفة والمدة قبل البدء.</p>
+            <div className="development-actions">
+              <a className="primary-button development-whatsapp" href="https://wa.me/message/NEVZVG5DC5CEA1" target="_blank" rel="noreferrer"><MessageCircle size={18}/> مراسلة العصيمي عبر واتساب <ExternalLink size={15}/></a>
+              <a className="secondary-button development-phone" href="tel:+967776778675"><Phone size={17}/> 00967776778675</a>
+            </div>
+          </div>
+          <div className="development-details">
+            <article className="panel">
+              <div className="development-detail-icon"><MessageCircle size={20}/></div>
+              <h3>طلب تطوير أو ميزة جديدة</h3>
+              <p>أرسل وصفاً للميزة المطلوبة، وسنناقش إمكانية تنفيذها والتكلفة والجدول الزمني. لا تُعد أي ميزة إضافية ضمن النظام إلا بعد الاتفاق عليها.</p>
+              <a href="https://wa.me/message/NEVZVG5DC5CEA1" target="_blank" rel="noreferrer">ابدأ المحادثة عبر واتساب <ExternalLink size={14}/></a>
+            </article>
+            <article className="panel">
+              <div className="development-detail-icon"><Phone size={20}/></div>
+              <h3>التواصل المباشر</h3>
+              <p>للاستفسارات والتنسيق بشأن التطوير والدعم الفني.</p>
+              <a href="tel:+967776778675" dir="ltr">00967776778675</a>
+            </article>
+          </div>
+          <div className="panel about-developer">
+            <div><span className="subtle-tag">جهة التطوير</span><h3>العصيمي للبرمجيات والحلول التقنية المتطورة</h3><p>خدمات تطوير البرمجيات، وتخصيص الأنظمة، وإضافة الميزات، والحلول التقنية وخدمات التطوير الرقمي.</p></div>
+            <span className="about-mark">ع</span>
+          </div>
+          <p className="development-note">تخضع الميزات والتعديلات الإضافية لمتطلبات واتفاق مستقل. التواصل لا يعني تفعيل ميزة أو الالتزام بتنفيذها قبل الاتفاق.</p>
+        </section>}
       </main>
 
       {showCreateProduct && <Modal title="إضافة منتج جديد" subtitle="أدخل بيانات الصنف الأساسية" onClose={() => setShowCreateProduct(false)} onSubmit={handleCreateProduct} busy={busy}>
