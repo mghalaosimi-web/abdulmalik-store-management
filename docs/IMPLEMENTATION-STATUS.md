@@ -19,7 +19,7 @@ Last updated: 2026-11-01
 | Accounting | Seeded chart of accounts, balanced immutable journal posting for sales/purchases/expenses/returns and customer/supplier settlements, trial balance | Manual journal UI, subledger-to-control-account reconciliation, aging, period close, reconciled tax reports |
 | Reports | Initial ledger-derived profit summary covering sales returns, COGS, purchase-return variance, expenses, and inventory value | Full financial statements, aging, audited exports, depreciation/accruals |
 | Security | Parameterized SQL, constrained Tauri capabilities, append-only ledgers | Login, password hashing, RBAC, actor identity, session timeout, threat review |
-| Operations | CI workflow, lockfile, SQLite migration verifier | Backup/restore, disaster recovery, update/signing, release monitoring |
+| Operations | CI workflow, lockfile, SQLite migration verifier, in-app development/support contact | Backup/restore, disaster recovery, update/signing, release monitoring |
 
 ## Financial/data caveats
 
@@ -53,3 +53,10 @@ Last updated: 2026-11-01
 - [ ] Owner signs off on user acceptance and operating procedures.
 
 Until all P0 release gates pass, label the software **pre-release / pilot only** and use synthetic test data.
+
+
+## Development and commercial extensions
+
+- The current application exposes contact details for **العصيمي للبرمجيات والحلول التقنية المتطورة** in the navigation and dashboard so the store owner can request custom features and support by agreement.
+- No in-app subscription, payment, or license enforcement flow has been implemented or is implied. Custom work must be scoped and agreed separately.
+- Current contact: `00967776778675`; WhatsApp: `https://wa.me/message/NEVZVG5DC5CEA1`.
