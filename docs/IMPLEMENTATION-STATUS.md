@@ -16,7 +16,7 @@ Last updated: 2026-11-01
 | Purchasing | Purchase receiving, stock increment, weighted-average cost, supplier payment allocation | Purchase return, supplier statement, attachment handling, invoice matching |
 | Cash/expenses | Open/close cash session, cash movement attribution, expenses | Multi-register support, approvals, expense categories, reconciliation reports |
 | Repairs | Intake, validated status transitions, immutable status history | Technician workflow, parts consumption, labor, warranty, customer notifications |
-| Accounting | Seeded chart of accounts, balanced immutable journal posting for sales/purchases/expenses, trial balance | Manual journal UI, receivable/payable settlements, period close, reconciled tax reports |
+| Accounting | Seeded chart of accounts, balanced immutable journal posting for sales/purchases/expenses/returns/settlements, trial balance, initial customer/supplier allocation workflows | Manual journal UI, subledger-to-control-account reconciliation, aging, period close, reconciled tax reports |
 | Reports | Initial sales/COGS/expense/inventory summary | Return-adjusted statements, aging, audited exports |
 | Security | Parameterized SQL, constrained Tauri capabilities, append-only ledgers | Login, password hashing, RBAC, actor identity, session timeout, threat review |
 | Operations | CI workflow, lockfile, SQLite migration verifier | Backup/restore, disaster recovery, update/signing, release monitoring |
@@ -25,12 +25,12 @@ Last updated: 2026-11-01
 
 1. The first schema stores money in SQLite `REAL` columns. Application calculations use integer minor units, but this is not sufficient for final accounting acceptance. Migrate financial columns to integer minor units in a versioned migration before production.
 2. The initial currency setting is SAR for this Saudi-project scope. The owner must confirm the store's legal operating country, currency, tax registration, and invoice requirements before live data is entered.
-3. Sales, purchases, and expenses now create double-entry journal entries using the seeded account codes. Manual journal UI, settlement allocations, and period closing are still missing.
+3. Sales, purchases, expenses, returns, and initial settlement flows create double-entry journal entries using seeded account codes. Manual journal UI, full subledger reconciliation, and period closing are still missing.
 4. Tax is disabled by default. No ZATCA, e-invoicing, telecom, payment, or other regulatory compliance is claimed.
-5. The operational profit report is indicative. It does not yet reconcile journal entries, returns, tax treatment, supplier discounts, depreciation, or all accruals.
+5. The operational profit report is indicative and return-adjusted, but it does not yet reconcile journal entries, full tax treatment, supplier discounts, depreciation, or all accruals.
 6. Cash payments are linked to a cash session. Card/transfer/wallet transactions are not part of physical cash reconciliation.
 7. A registered IMEI/serial unit is currently attached to an existing product balance; registering a unit does not increment stock. Avoid double-counting units and aggregate stock.
-8. Posted sales, purchases, expenses, stock movements, payments, and audit events need compensating operations for corrections. Void workflows, purchase returns, and full end-to-end return acceptance tests remain outstanding.
+8. Posted sales, purchases, expenses, stock movements, payments, and audit events need compensating operations for corrections. Partial sales returns are implemented; sale voids, purchase returns, and full end-to-end return acceptance tests remain outstanding.
 
 ## Required release gates — do not skip
 
@@ -41,9 +41,11 @@ Last updated: 2026-11-01
 - [ ] Test purchase rollback and weighted-average cost reconciliation.
 - [ ] Test cash session attribution, cash count variance, and non-cash exclusions.
 - [ ] Test repair transition rules and audit/status history.
-- [ ] Implement returns, voids, and compensating ledger entries.
+- [x] Implement initial partial sales returns, stock restoration, refund payments/customer credits, and compensating journal entries.
+- [ ] Complete sale voids, purchase returns, and end-to-end acceptance tests for returns.
 - [ ] Migrate money columns from REAL to integer minor units.
-- [ ] Add receivables/payables payment allocations and reconcile subledger balances to accounts 1100/2000.
+- [x] Add initial receivables/payables payment allocations and calculated customer/supplier balances.
+- [ ] Reconcile subledger balances to accounts 1100/2000 and add aging/advance handling.
 - [ ] Implement authentication/RBAC and actor attribution before multi-employee operation.
 - [ ] Implement backup/restore and successfully restore a backup on a separate machine.
 - [ ] Complete security review, privacy review, and jurisdiction-specific accounting/tax review.
