@@ -78,3 +78,12 @@ pnpm tauri build
 - [Delivery roadmap](docs/ROADMAP.md)
 - [Implementation status and release gates](docs/IMPLEMENTATION-STATUS.md)
 - [Execution agenda](docs/EXECUTION-AGENDA.md)
+
+## Development requests and support
+
+The application provides a direct contact area for requesting custom development, additional modules, and technical support. Such work is discussed and agreed separately with **العصيمي للبرمجيات والحلول التقنية المتطورة** before implementation; no subscription or in-app paid-license flow is currently part of this release.
+
+- Phone / WhatsApp: `00967776778675`
+- WhatsApp contact: https://wa.me/message/NEVZVG5DC5CEA1
+
+The contact entry is informational and does not imply that a requested feature is already available or included in the current application.
