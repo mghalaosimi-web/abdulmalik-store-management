@@ -89,9 +89,11 @@ export async function processPurchaseReturn(input: PurchaseReturnInput): Promise
   try {
     const purchases = await db.select<Array<{
       id: string; subtotal: number; discount: number; total: number; tax_amount: number;
-      paid_amount: number; supplier_id: string; status: string;
+      paid_amount: number; later_paid: number; supplier_id: string; status: string;
     }>>(
-      "SELECT id, subtotal, discount, total, tax_amount, paid_amount, supplier_id, status FROM purchase_orders WHERE id = ? LIMIT 1",
+      `SELECT po.id, po.subtotal, po.discount, po.total, po.tax_amount, po.paid_amount, po.supplier_id, po.status,
+              COALESCE((SELECT SUM(a.amount) FROM purchase_payment_allocations a WHERE a.purchase_id = po.id), 0) AS later_paid
+       FROM purchase_orders po WHERE po.id = ? LIMIT 1`,
       [input.purchaseId],
     );
     const purchase = purchases[0];
@@ -163,11 +165,12 @@ export async function processPurchaseReturn(input: PurchaseReturnInput): Promise
     );
     if (refundMinor > remainingRefundCapMinor) throw new Error("مبلغ الاسترداد يتجاوز قيمة الأصناف المرتجعة بعد احتساب الخصم والضريبة.");
 
+    const totalPaidMinor = toMinorUnits(purchase.paid_amount) + toMinorUnits(purchase.later_paid);
     if (input.refundMethod === "supplier_credit") {
-      const availablePayableMinor = Math.max(0, purchaseTotalMinor - toMinorUnits(purchase.paid_amount) - previousSupplierCreditMinor);
+      const availablePayableMinor = Math.max(0, purchaseTotalMinor - totalPaidMinor - previousSupplierCreditMinor);
       if (refundMinor > availablePayableMinor) throw new Error("رصيد المورد غير المدفوع لا يكفي لإضافة هذا المبلغ كرصيد دائن؛ استخدم طريقة استرداد فعلية للمبالغ المدفوعة.");
     } else {
-      const availablePaidMinor = Math.max(0, toMinorUnits(purchase.paid_amount) - previousCashRefundMinor);
+      const availablePaidMinor = Math.max(0, totalPaidMinor - previousCashRefundMinor);
       if (refundMinor > availablePaidMinor) throw new Error("لا يمكن استرداد مبلغ أكبر مما تم دفعه فعلياً للمورد.");
     }
 
