@@ -76,6 +76,27 @@ CREATE TABLE IF NOT EXISTS stock_movements (
 
 CREATE INDEX IF NOT EXISTS idx_stock_movements_product_date ON stock_movements(product_id, created_at);
 
+CREATE TRIGGER IF NOT EXISTS trg_products_opening_stock
+AFTER INSERT ON products
+WHEN NEW.quantity > 0
+BEGIN
+  INSERT INTO stock_movements (
+    id, product_id, movement_type, quantity_delta, reference_type, reference_id, note
+  ) VALUES (
+    lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' ||
+    substr(lower(hex(randomblob(2))), 2) || '-' ||
+    substr('89ab', abs(random()) % 4 + 1, 1) ||
+    substr(lower(hex(randomblob(2))), 2) || '-' ||
+    lower(hex(randomblob(6))),
+    NEW.id,
+    'opening',
+    NEW.quantity,
+    'product',
+    NEW.id,
+    'Initial quantity at product creation'
+  );
+END;
+
 CREATE TABLE IF NOT EXISTS sales (
   id TEXT PRIMARY KEY NOT NULL,
   invoice_number TEXT NOT NULL UNIQUE,
