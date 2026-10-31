@@ -20,7 +20,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
       (SELECT COUNT(*) FROM products WHERE status = 'active' AND quantity <= min_quantity) AS low_stock_count,
       (SELECT COUNT(*) FROM customers) AS customer_count,
       (SELECT COUNT(*) FROM sales WHERE status = 'posted' AND date(created_at) = date('now','localtime')) AS sales_today,
-      (SELECT COALESCE(SUM(total), 0) FROM sales WHERE status = 'posted' AND date(created_at) = date('now','localtime')) AS revenue_today,
+      ((SELECT COALESCE(SUM(total), 0) FROM sales WHERE status = 'posted' AND date(created_at) = date('now','localtime'))
+       - (SELECT COALESCE(SUM(refund_amount), 0) FROM sale_returns WHERE date(created_at) = date('now','localtime'))) AS revenue_today,
       (SELECT COUNT(*) FROM repairs WHERE status NOT IN ('delivered','cancelled')) AS repairs_open`
   );
   const row = rows[0];
