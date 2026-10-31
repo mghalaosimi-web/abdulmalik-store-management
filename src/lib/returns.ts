@@ -91,7 +91,7 @@ export async function processSaleReturn(input: SaleReturnInput): Promise<SaleRet
       id: string; product_id: string; quantity: number; unit_price: number;
       unit_cost: number; line_total: number; product_unit_id: string | null;
     }>>(
-      "SELECT id, product_id, quantity, unit_price, unit_cost, product_unit_id FROM sale_items WHERE sale_id = ?", [input.saleId],
+      "SELECT id, product_id, quantity, unit_price, unit_cost, line_total, product_unit_id FROM sale_items WHERE sale_id = ?", [input.saleId],
     );
     const returnRows: Array<{ saleItemId: string; productId: string; quantity: number; valueMinor: number; costMinor: number; productUnitId: string | null }> = [];
     let currentReturnValueMinor = 0;
