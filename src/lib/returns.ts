@@ -16,6 +16,27 @@ export interface ReturnableSaleItem {
   returnedQuantity: number; remainingQuantity: number; unitPrice: number; unitCost: number;
 }
 
+/** Distribute a refund across returned lines without losing or creating minor units. */
+export function allocateRefundMinorUnits(totalRefundMinor: number, lineValueMinor: number[]): number[] {
+  if (!Number.isSafeInteger(totalRefundMinor) || totalRefundMinor <= 0 || lineValueMinor.length === 0 ||
+      lineValueMinor.some((value) => !Number.isSafeInteger(value) || value < 0)) {
+    throw new Error("بيانات توزيع مبلغ المرتجع غير صالحة.");
+  }
+  const totalValue = lineValueMinor.reduce((sum, value) => sum + value, 0);
+  if (!Number.isSafeInteger(totalValue) || totalValue <= 0) throw new Error("قيمة الأصناف المرتجعة غير صالحة.");
+  let cumulativeValue = 0;
+  let allocated = 0;
+  return lineValueMinor.map((value, index) => {
+    cumulativeValue += value;
+    const cumulativeAllocation = index === lineValueMinor.length - 1
+      ? totalRefundMinor
+      : Math.round((totalRefundMinor * cumulativeValue) / totalValue);
+    const amount = cumulativeAllocation - allocated;
+    allocated = cumulativeAllocation;
+    return amount;
+  });
+}
+
 export async function listSaleReturnableItems(saleId: string): Promise<ReturnableSaleItem[]> {
   const db = await getDatabase();
   const rows = await db.select<Array<{
@@ -140,11 +161,12 @@ export async function processSaleReturn(input: SaleReturnInput): Promise<SaleRet
       [returnId, returnNumber, input.saleId, fromMinorUnits(refundMinor), fromMinorUnits(taxRefundMinor), fromMinorUnits(currentCostMinor), input.refundMethod, reason],
     );
 
-    for (const row of returnRows) {
+    const itemRefundAllocations = allocateRefundMinorUnits(refundMinor, returnRows.map((row) => row.valueMinor));
+    for (const [index, row] of returnRows.entries()) {
       await db.execute(
         `INSERT INTO sale_return_items(id, return_id, sale_item_id, quantity, refund_amount, cost_returned)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [crypto.randomUUID(), returnId, row.saleItemId, row.quantity, fromMinorUnits(row.valueMinor), fromMinorUnits(row.costMinor)],
+        [crypto.randomUUID(), returnId, row.saleItemId, row.quantity, fromMinorUnits(itemRefundAllocations[index]), fromMinorUnits(row.costMinor)],
       );
       await db.execute(
         "UPDATE products SET quantity = quantity + ?, updated_at = datetime('now') WHERE id = ?",
