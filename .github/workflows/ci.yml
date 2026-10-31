@@ -22,7 +22,9 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
+      - name: Verify SQLite migrations and invariants
+        run: python scripts/verify-migrations.py
       - name: Typecheck
         run: pnpm typecheck
       - name: Lint
@@ -45,6 +47,6 @@ jobs:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Build Windows installer
         run: pnpm tauri build
