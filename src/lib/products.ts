@@ -38,7 +38,7 @@ export async function listProducts(search = ""): Promise<Product[]> {
     `SELECT id, sku, name, category, brand, cost_price, sale_price,
             quantity, min_quantity, status, created_at
      FROM products
-     WHERE (? = '%%' OR name LIKE ? OR sku LIKE ? OR COALESCE(brand, '') LIKE ?)
+     WHERE ($1 = '%%' OR name LIKE $2 OR sku LIKE $3 OR COALESCE(brand, '') LIKE $4)
      ORDER BY created_at DESC`,
     [term, term, term, term],
   );
@@ -60,7 +60,7 @@ export async function createProduct(input: {
   await db.execute(
     `INSERT INTO products
       (id, sku, name, category, brand, cost_price, sale_price, quantity, min_quantity, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active')`,
     [
       id, input.sku.trim(), input.name.trim(), input.category.trim(),
       input.brand?.trim() || null, input.costPrice, input.salePrice,
