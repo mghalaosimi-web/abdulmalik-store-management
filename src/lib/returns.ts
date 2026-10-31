@@ -24,13 +24,16 @@ export function allocateRefundMinorUnits(totalRefundMinor: number, lineValueMino
   }
   const totalValue = lineValueMinor.reduce((sum, value) => sum + value, 0);
   if (!Number.isSafeInteger(totalValue) || totalValue <= 0) throw new Error("قيمة الأصناف المرتجعة غير صالحة.");
-  let cumulativeValue = 0;
+  let cumulativeValue = 0n;
   let allocated = 0;
+  const totalValueBig = BigInt(totalValue);
+  const refundBig = BigInt(totalRefundMinor);
   return lineValueMinor.map((value, index) => {
-    cumulativeValue += value;
+    cumulativeValue += BigInt(value);
     const cumulativeAllocation = index === lineValueMinor.length - 1
       ? totalRefundMinor
-      : Math.round((totalRefundMinor * cumulativeValue) / totalValue);
+      : Number((refundBig * cumulativeValue + totalValueBig / 2n) / totalValueBig);
+    if (!Number.isSafeInteger(cumulativeAllocation)) throw new Error("قيمة توزيع المرتجع أكبر من النطاق المسموح.");
     const amount = cumulativeAllocation - allocated;
     allocated = cumulativeAllocation;
     return amount;
