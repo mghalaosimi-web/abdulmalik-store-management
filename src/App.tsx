@@ -10,6 +10,7 @@ import { createCustomer, listCustomers, type Customer } from "./lib/customers";
 import { checkoutSale, listRecentSales, type RecentSale } from "./lib/sales";
 import { createRepair, listRepairs, transitionRepair, type RepairRecord, type RepairStatus } from "./lib/repairs";
 import type { Product } from "./types";
+import storeLogo from "./assets/IMG-20261031-WA0049.jpg";
 import { createSupplier, listSuppliers, type Supplier } from "./lib/suppliers";
 import { receivePurchase, listRecentPurchases, type RecentPurchase, type PurchaseLineInput } from "./lib/purchases";
 import { listPurchaseReturnableItems, processPurchaseReturn, type ReturnablePurchaseItem } from "./lib/purchase-returns";
@@ -490,7 +491,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand"><div className="brand-mark"><Wifi size={22} /></div><div><strong>عبدالملك</strong><span>للاتصالات والإلكترونيات</span></div></div>
+        <div className="brand"><div className="brand-mark"><img src={storeLogo} alt="شعار عبدالملك للاتصالات والإلكترونيات" /></div><div><strong>عبدالملك</strong><span>للاتصالات والإلكترونيات</span></div></div>
         <div className="store-label">إدارة المتجر <span className="status-dot" /></div>
         <nav className="navigation" aria-label="التنقل الرئيسي">
           <p className="nav-caption">القائمة الرئيسية</p>
@@ -515,7 +516,7 @@ export default function App() {
 
         {section === "dashboard" && (
           <>
-            <section className="welcome-panel"><div><span className="welcome-kicker">مرحباً بك في نظامك</span><h2>إدارة متجرك، <em>بوضوح وثقة.</em></h2><p>تابع المنتجات والمبيعات والخدمات من مساحة عمل واحدة.</p></div><div className="welcome-art"><BriefcaseBusiness size={72} strokeWidth={1} /></div></section>
+            <section className="welcome-panel"><div><span className="welcome-kicker">مرحباً بك في نظامك</span><h2>إدارة متجرك، <em>بوضوح وثقة.</em></h2><p>تابع المنتجات والمبيعات والخدمات من مساحة عمل واحدة.</p></div><div className="welcome-art"><img src={storeLogo} alt="شعار عبدالملك للاتصالات والإلكترونيات" /></div></section>
             <section className="stats-grid">
               <StatCard icon={Boxes} label="إجمالي المنتجات" value={desktop ? (dashboardMetrics?.productCount ?? products.length).toLocaleString("ar") : "—"} detail="منتج نشط" />
               <StatCard icon={ClipboardList} label="منتجات منخفضة" value={desktop ? (dashboardMetrics?.lowStockCount ?? lowStock).toLocaleString("ar") : "—"} detail="تحتاج إلى إعادة طلب" />
