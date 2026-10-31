@@ -10,48 +10,49 @@ Coordination branch: `chore/project-execution-agenda`
 
 ## Project status
 
-**Current stage: Foundation / early catalog implementation. Not production-ready.**
+**Current stage: Initial operational vertical slice. Not production-ready.**
 
 The repository currently contains:
-- React + TypeScript + Vite application shell.
-- Tauri 2 host and SQLite plugin wiring.
-- Initial SQL migration.
-- Initial product create/list path.
-- Validation utilities and Vitest tests.
-- Architecture, domain model, security, and roadmap documentation.
-- GitHub Actions CI workflow.
+- React + TypeScript + Vite application shell with Arabic RTL screens.
+- Tauri 2 host and SQLite plugin wiring, with migrations v1, v2, and v3.
+- Product catalog, stock adjustments, IMEI/serial registration service.
+- Customer and supplier records.
+- POS checkout, purchase receiving, cash sessions, and expense recording services.
+- Repair intake and status-history workflow.
+- Initial operational reports and SQLite migration verification script.
+- Vitest tests and GitHub Actions workflow.
 
-The repository does not yet demonstrate a production-ready store workflow. Do not enter real customer, supplier, inventory, or financial data.
+This is an initial operational slice, not a production-ready ERP/POS. Do not enter real customer, supplier, inventory, or financial data.
 
 ## Work status
 
 | ID | Workstream | Status | Priority | Acceptance evidence |
 |---|---|---|---|---|
-| FND-01 | Dependency installation and frontend checks | Passed on baseline CI | P0 | CI install, typecheck, lint, tests, and build all green |
-| FND-02 | Windows Tauri build and installer | Icon asset added on PR branch; CI verification pending | P0 | Successful Windows CI job and install/launch smoke test |
-| FND-03 | SQLite migration execution and Tauri capabilities | Pending verification | P0 | Migration runs on a clean local database; least-privilege capabilities verified |
-| CAT-01 | Product create/list foundation | Implemented, needs review | P1 | Persistence, validation, empty/error states, and integration tests verified |
+| FND-01 | Dependency installation and frontend checks | Passed locally in clean cloud box; CI rerun pending | P0 | CI install, typecheck, lint, tests, and build all green |
+| FND-02 | Windows Tauri build and installer | Icon asset added; Windows CI rerun pending | P0 | Successful Windows CI job and install/launch smoke test |
+| FND-03 | SQLite migration execution and Tauri capabilities | SQLite scripts verified with Python; Windows runtime pending | P0 | Migration runs on a clean local database; least-privilege capabilities verified |
+| CAT-01 | Product create/list foundation | Initial implementation + input validation | P1 | Persistence, validation, empty/error states, and integration tests verified |
 | CAT-02 | Categories and brands | Pending | P1 | CRUD, validation, uniqueness, and tests |
-| INV-01 | Serialized devices and IMEI/serial validation | Pending | P1 | Unique identifiers, device lifecycle, and tests |
-| INV-02 | Inventory ledger, adjustments, reconciliation | Partial foundation only | P1 | Transactional movements, immutable history, balance reconciliation |
+| INV-01 | Serialized devices and IMEI/serial validation | IMEI validation + registration service; full lifecycle pending | P1 | Unique identifiers, device lifecycle, and tests |
+| INV-02 | Inventory ledger, adjustments, reconciliation | Opening ledger + adjustments + immutable movements; stocktake pending | P1 | Transactional movements, immutable history, balance reconciliation |
 | INV-03 | Barcode generation and label printing | Pending | P2 | Printable labels and tested barcode payloads |
-| PUR-01 | Suppliers and purchasing | Pending | P1 | Purchase workflow updates stock and supplier balances transactionally |
-| POS-01 | POS cart and checkout | Pending | P0 | Atomic checkout, stock checks, price snapshots, and failure rollback |
+| PUR-01 | Suppliers and purchasing | Supplier records + receiving + weighted-average cost | P1 | Purchase workflow updates stock and supplier balances transactionally |
+| POS-01 | POS cart and checkout | Transactional checkout + stock decrement + invoice reference | P0 | Atomic checkout, stock checks, price snapshots, and failure rollback |
 | POS-02 | Payments, invoices, returns, void controls | Pending | P0 | Payment allocation, invoice numbering, return controls, audit trail |
-| CASH-01 | Cash drawer and shift closing | Pending | P1 | Opening/closing balances and variance report |
+| CASH-01 | Cash drawer and shift closing | Session opening/closing + exact cash-session payment attribution | P1 | Opening/closing balances and variance report |
 | CRM-01 | Customers and account statements | Pending | P1 | Customer CRUD, balances, ledger, statement |
-| SRV-01 | Repair intake and status history | Pending | P1 | Repair ticket lifecycle and history |
+| SRV-01 | Repair intake and status history | Intake + allowed transitions + history | P1 | Repair ticket lifecycle and history |
 | SRV-02 | Spare-parts consumption and warranty | Pending | P2 | Stock consumption and warranty claim traceability |
-| ACC-01 | Chart of accounts and journal entries | Pending | P1 | Balanced double-entry postings; exact decimal arithmetic |
-| ACC-02 | Expenses, income, receivables, payables | Pending | P1 | Transactional vouchers and reconciled balances |
-| RPT-01 | Profit, cash-flow, inventory reports | Pending | P2 | Reports reconcile to source ledgers |
+| ACC-01 | Chart of accounts and journal entries | Seeded chart + balanced immutable postings for sales/purchases/expenses + trial balance | P1 | Balanced double-entry postings; exact decimal arithmetic |
+| ACC-02 | Expenses, income, receivables, payables | Expense voucher and payment journal; settlement subledgers pending | P1 | Transactional vouchers and reconciled balances |
+| RPT-01 | Profit, cash-flow, inventory reports | Indicative sales/COGS/expense/inventory summary; reconciliation pending | P2 | Reports reconcile to source ledgers |
 | SEC-01 | Authentication and RBAC | Pending | P0 before multi-user use | Permission matrix and negative authorization tests |
 | SEC-02 | Audit review screens | Pending | P1 | Searchable immutable audit events |
 | OPS-01 | Backup, restore, recovery drills | Pending | P0 before real data | Backup validation and successful restore drill |
 | QA-01 | Integration and end-to-end tests | Pending | P0 | Critical workflows covered by automated tests |
 | REL-01 | Windows installer and release process | Pending | P0 | Signed/reproducible installer and release checklist |
 
-## CI baseline to investigate
+## CI baseline and current verification
 
 The latest observed GitHub Actions run on the baseline commit was:
 - Run ID: `41242530238`
@@ -104,8 +105,13 @@ To reduce merge conflicts, use these proposed lanes:
 
 - [x] FND-01: inspect CI jobs and logs for run `41242530238`; frontend checks passed.
 - [ ] FND-02: verify the newly added `src-tauri/icons/icon.ico` asset by rerunning and passing the Windows build.
-- [ ] FND-03: verify SQLite migration execution and Tauri SQL plugin permissions on Windows.
-- [ ] CAT-01: audit product persistence path and add integration coverage.
+- [x] FND-03: execute migrations v1/v2 against an in-memory SQLite database and verify key constraints/triggers locally.
+- [x] CAT-01: add product input validation, stock adjustment ledger, and IMEI/serial registration service.
+- [x] PUR-01: implement supplier records and transactional purchase receiving.
+- [x] POS-01: implement transactional checkout, stock checks, payments, and invoice references.
+- [x] CASH-01: implement cash-session opening/closing and per-session payment attribution.
+- [x] SRV-01: implement repair intake and status history.
+- [ ] Windows Tauri migration/build and installer smoke test on a Windows runner.
 - [ ] Confirm Ramzi's collaborator permission is `write` or higher before expecting him to push branches.
 
 ## Change log
@@ -113,3 +119,10 @@ To reduce merge conflicts, use these proposed lanes:
 - 2026-11-01: Created this execution agenda on `chore/project-execution-agenda` from the observed `main` baseline. No production deployment, database reset, data migration, or merge was performed.
 - 2026-11-01: Inspected CI run `41242530238` and its Windows job logs. Confirmed frontend checks pass; Windows packaging fails because `src-tauri/icons/icon.ico` is missing.
 - 2026-11-01: Added a valid 32×32 Windows ICO asset at `src-tauri/icons/icon.ico` on the coordination branch. Windows CI verification is pending.
+
+- 2026-11-01: Added migration v2 for purchases, repair history, cash sessions, expenses, immutable ledger/audit/payment triggers, case-insensitive SKU uniqueness, and cash-session payment attribution.
+- 2026-11-01: Implemented customer/supplier repositories, POS checkout, purchase receiving with weighted-average cost, cash sessions/expenses, repair state transitions, inventory adjustments, and IMEI/serial registration.
+- 2026-11-01: Expanded the Arabic UI with customer, supplier, POS, purchase, repair, cash, and operational report screens.
+- 2026-11-01: Added `scripts/verify-migrations.py`; local verification passed for migration SQL, opening-stock trigger, immutable ledgers, SKU uniqueness, and cash-session attribution.
+- 2026-11-01: Local cloud-box verification passed: typecheck, lint, 10 Vitest tests, Vite production build, and SQLite migration verifier. Native Windows build remains unverified because this Linux box has no Rust toolchain.
+- 2026-11-01: Added migration v3 with a seeded chart of accounts, balanced journal posting guards, and immutable posted journal entries/lines. Sales, purchases, and expenses now post balanced double-entry journals; an initial trial-balance screen is available.
