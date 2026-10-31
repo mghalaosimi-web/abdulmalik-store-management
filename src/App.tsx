@@ -631,7 +631,13 @@ export default function App() {
           {financialSummary && <div className="stats-grid report-stats"><StatCard icon={Receipt} label="عدد الفواتير" value={financialSummary.invoiceCount.toLocaleString("ar")} detail="فواتير مرحّلة"/><StatCard icon={CreditCard} label="إجمالي المبيعات" value={financialSummary.grossSales.toFixed(2)} detail="شاملاً الضريبة المسجلة"/><StatCard icon={Boxes} label="تكلفة البضاعة" value={financialSummary.costOfGoods.toFixed(2)} detail="حسب تكلفة الأصناف وقت البيع"/><StatCard icon={BarChart3} label="مجمل الربح" value={financialSummary.grossProfit.toFixed(2)} detail="المبيعات دون الضريبة ناقص التكلفة"/><StatCard icon={Receipt} label="المصروفات" value={financialSummary.expenses.toFixed(2)} detail="المصروفات المسجلة خلال الفترة"/><StatCard icon={Wallet} label="صافي الربح التقديري" value={financialSummary.netProfit.toFixed(2)} detail="قبل قيود محاسبية إضافية"/><StatCard icon={Package} label="قيمة المخزون" value={financialSummary.inventoryValue.toFixed(2)} detail="كمية المنتجات × متوسط التكلفة"/></div>}
           <p className="muted-help">هذا تقرير تشغيلي أولي وليس قوائم مالية معتمدة أو إقراراً ضريبياً. لا يشمل بعد التسويات المحاسبية والمرتجعات والضرائب القابلة للاسترداد.</p>
         </section>}
-        {section === "settings" && <section className="panel placeholder-panel"><div className="empty-icon"><ClipboardList size={25}/></div><h3>الإعدادات</h3><p>إعدادات المتجر والضريبة والمستخدمين والنسخ الاحتياطي تحتاج إلى استكمال قبل الاستخدام التجاري.</p><span className="subtle-tag">قيد التطوير</span></section>}
+        {section === "settings" && <section className="settings-page">
+          <div className="panel placeholder-panel"><div className="empty-icon"><ClipboardList size={25}/></div><h3>إعدادات النظام</h3><p>إعدادات المتجر والضريبة والمستخدمين والنسخ الاحتياطي تحتاج إلى استكمال قبل الاستخدام التجاري.</p><span className="subtle-tag">قيد التطوير</span></div>
+          <div className="panel settings-support">
+            <div><span className="subtle-tag">التطوير والدعم الفني</span><h3>هل تحتاج إلى ميزة إضافية أو تخصيص للنظام؟</h3><p>تواصل مع العصيمي للبرمجيات والحلول التقنية المتطورة لمناقشة المتطلبات والاتفاق على التطوير.</p></div>
+            <div className="panel-actions"><a className="primary-button" href="https://wa.me/message/NEVZVG5DC5CEA1" target="_blank" rel="noreferrer"><MessageCircle size={16}/> واتساب</a><a className="secondary-button" href="tel:+967776778675"><Phone size={16}/> 00967776778675</a><button className="secondary-button" onClick={()=>setSection("development")}>التفاصيل</button></div>
+          </div>
+        </section>}
         {section === "development" && <section className="development-page">
           <div className="development-hero">
             <div className="development-hero-icon"><Headphones size={30}/></div>
