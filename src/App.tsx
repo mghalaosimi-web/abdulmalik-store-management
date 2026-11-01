@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Activity, BarChart3, Boxes, ClipboardList, CreditCard, BookOpen,
+  BarChart3, Boxes, ClipboardList, CreditCard, BookOpen,
   Headphones, LayoutDashboard, Package, Plus, Search, Settings, ShoppingCart,
   Users, Wrench, Wifi, X, Receipt, RefreshCw, Truck, Wallet, ShoppingBasket, MessageCircle, Phone, ExternalLink,
 } from "lucide-react";
@@ -547,7 +547,13 @@ export default function App() {
               <StatCard icon={Users} label="العملاء" value={desktop ? (dashboardMetrics?.customerCount ?? customers.length).toLocaleString("ar") : "—"} detail="عميل مسجل" />
               <StatCard icon={CreditCard} label="مبيعات اليوم" value={desktop ? (dashboardMetrics?.salesToday ?? 0).toLocaleString("ar") : "—"} detail={desktop ? `إيراد ${formatMoney(dashboardMetrics?.revenueToday ?? 0)}` : "يظهر في تطبيق سطح المكتب"} />
             </section>
-            <section className="content-grid">
+            <section className="dashboard-quick-actions" aria-label="إجراءات سريعة">
+              <button className="quick-action primary" onClick={() => { setSection("sales"); setSearch(""); }}><ShoppingCart size={19}/><span><strong>إنشاء فاتورة</strong><small>الانتقال إلى نقطة البيع</small></span><kbd>F2</kbd></button>
+              <button className="quick-action" onClick={() => { setSection("products"); setSearch(""); }}><Package size={19}/><span><strong>إدارة المنتجات</strong><small>الأصناف والأرصدة</small></span></button>
+              <button className="quick-action" onClick={() => { setSection("purchases"); setSearch(""); }}><ShoppingBasket size={19}/><span><strong>استلام مشتريات</strong><small>إضافة توريدات للمخزون</small></span></button>
+              <button className="quick-action" onClick={() => { setSection("repairs"); setSearch(""); }}><Wrench size={19}/><span><strong>طلبات الصيانة</strong><small>متابعة الأجهزة</small></span></button>
+            </section>
+            <section className="content-grid dashboard-main-grid">
               <div className="panel"><div className="panel-heading"><div><h3>وحدات التشغيل</h3><p>الوحدات المرتبطة حالياً بقاعدة البيانات</p></div><span className="subtle-tag">الإصدار 0.2</span></div>
                 <div className="module-list">
                   <ModuleRow icon={Package} title="إدارة المنتجات" description="إضافة الأصناف والأسعار والأرصدة الافتتاحية" state="متاحة" />
@@ -557,8 +563,24 @@ export default function App() {
                 </div>
               </div>
               <div className="panel side-panel"><div className="panel-heading"><div><h3>مركز التنبيهات</h3><p>ما يحتاج إلى انتباه</p></div><Headphones size={19} /></div>
-                <div className="empty-state"><div className="empty-icon"><Activity size={23} /></div><strong>{lowStock ? `${lowStock} منتجات منخفضة المخزون` : "لا توجد تنبيهات مخزون"}</strong><span>راجع المنتجات التي وصلت إلى حد إعادة الطلب.</span></div>
+                <div className="dashboard-alert-list">
+                  <button className="dashboard-alert-row" onClick={() => { setSection("products"); setSearch(""); }}>
+                    <span className="dashboard-alert-icon warning"><Boxes size={17}/></span>
+                    <span><strong>مخزون يحتاج إلى متابعة</strong><small>{desktop ? (dashboardMetrics?.lowStockCount ?? lowStock).toLocaleString("ar") : "—"} صنف عند حد إعادة الطلب أو أقل</small></span>
+                    <span className="dashboard-alert-arrow">←</span>
+                  </button>
+                  <button className="dashboard-alert-row" onClick={() => { setSection("repairs"); setSearch(""); }}>
+                    <span className="dashboard-alert-icon repair"><Wrench size={17}/></span>
+                    <span><strong>طلبات الصيانة المفتوحة</strong><small>{desktop ? (dashboardMetrics?.repairsOpen ?? 0).toLocaleString("ar") : "—"} طلب لم يكتمل تسليمه</small></span>
+                    <span className="dashboard-alert-arrow">←</span>
+                  </button>
+                  <div className="dashboard-status-note"><span className={desktop ? "status-indicator ready" : "status-indicator"}></span>{desktop ? "قاعدة البيانات المحلية متصلة" : "الأرقام التشغيلية تظهر عند تشغيل تطبيق سطح المكتب"}</div>
+                </div>
               </div>
+            </section>
+            <section className="panel dashboard-recent-panel">
+              <div className="panel-heading"><div><h3>أحدث فواتير البيع</h3><p>آخر العمليات المسجلة في قاعدة بيانات المتجر</p></div><button className="secondary-button" onClick={() => { setSection("sales"); setSearch(""); }}>عرض كل الفواتير <ExternalLink size={14}/></button></div>
+              {desktop && sales.length > 0 ? <div className="dashboard-recent-list">{sales.slice(0, 4).map((sale) => <button className="dashboard-sale-row" key={sale.id} onClick={() => { setSection("sales"); setSearch(""); }}><span className="dashboard-sale-icon"><Receipt size={17}/></span><span className="dashboard-sale-info"><strong>{sale.invoiceNumber}</strong><small>{sale.customerName} · {new Date(sale.createdAt).toLocaleDateString("ar")}</small></span><strong className="dashboard-sale-total">{formatMoney(sale.total)}</strong><span className="dashboard-sale-state">مسجلة</span></button>)}</div> : <div className="dashboard-recent-empty"><Receipt size={20}/><span>{desktop ? "لا توجد فواتير بيع مسجلة حتى الآن." : "ستظهر أحدث الفواتير هنا عند تشغيل التطبيق وربطه بقاعدة البيانات المحلية."}</span></div>}
             </section>
             <section className="development-cta">
               <div className="development-cta-icon"><MessageCircle size={22}/></div>
@@ -586,10 +608,19 @@ export default function App() {
           </table>{customers.length === 0 && <div className="table-empty">لا توجد بيانات عملاء. أضف أول عميل للبدء.</div>}</div>
         </section>}
 
-        {section === "sales" && <section className="sales-layout">
-          <div className="panel data-panel"><div className="panel-heading"><div><h3>نقطة البيع</h3><p>أنشئ فاتورة مع التحقق من المخزون قبل الترحيل</p></div><Receipt size={20} /></div>
+        {section === "sales" && <>
+          <section className="pos-overview">
+            <div className="pos-overview-copy"><span className="pos-kicker">SALES WORKSPACE</span><h2>نقطة البيع</h2><p>أنشئ فاتورتك، راجع الأصناف، ثم رحّل العملية بأمان.</p></div>
+            <div className="pos-overview-metrics">
+              <div><span>أصناف الفاتورة</span><strong>{cart.reduce((sum, line) => sum + line.quantity, 0).toLocaleString("ar")}</strong></div>
+              <div><span>المنتجات المتاحة</span><strong>{products.filter((p) => p.status === "active" && p.quantity > 0).length.toLocaleString("ar")}</strong></div>
+              <div><span>حالة الصندوق</span><strong className={cashSession ? "pos-cash-open" : "pos-cash-closed"}>{cashSession ? "مفتوح" : "غير مفتوح"}</strong></div>
+            </div>
+          </section>
+          <section className="sales-layout">
+          <div className="panel data-panel pos-cart-panel"><div className="panel-heading"><div><span className="pos-section-kicker">01 / ITEMS</span><h3>إضافة الأصناف إلى الفاتورة</h3><p>ابحث عن المنتج وتحقق من الكمية والرقم التسلسلي قبل الإضافة.</p></div><span className="pos-panel-icon"><Receipt size={20} /></span></div>
             <div className="form-grid">
-              <label className="field"><span>المنتج</span><select value={cartProduct} onChange={(e) => void handleSaleProductChange(e.target.value)}><option value="">اختر منتجاً</option>{products.filter((p) => p.status === "active" && p.quantity > 0).map((p) => <option key={p.id} value={p.id}>{p.name} — المتاح {p.quantity}</option>)}</select></label>
+              <label className="field"><span>المنتج</span><select value={cartProduct} onChange={(e) => void handleSaleProductChange(e.target.value)}><option value="">اختر منتجاً</option>{products.filter((p) => p.status === "active" && p.quantity > 0 && (!search.trim() || `${p.name} ${p.sku} ${p.brand}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))).map((p) => <option key={p.id} value={p.id}>{p.name} — المتاح {p.quantity}</option>)}</select></label>
               <label className="field"><span>الكمية</span><input type="number" min="1" step="1" value={cartQuantity} onChange={(e) => setCartQuantity(Number(e.target.value))} /></label>
             </div>
             {saleProductUnits.some((unit) => unit.status === "in_stock") && <label className="field"><span>IMEI / الرقم التسلسلي (اختياري عند بيع جهاز مسجل)</span><select value={saleProductUnitId} onChange={(e)=>{setSaleProductUnitId(e.target.value);if(e.target.value)setCartQuantity(1);}}><option value="">مخزون غير مسجل تسلسلياً</option>{saleProductUnits.filter((unit)=>unit.status === "in_stock").map((unit)=><option key={unit.id} value={unit.id}>{unit.imei || unit.serialNumber} — {unit.condition === "new" ? "جديد" : unit.condition === "used" ? "مستعمل" : "مجدد"}</option>)}</select></label>}
@@ -598,15 +629,17 @@ export default function App() {
               {cart.map((line, index) => { const p = products.find((item) => item.id === line.productId); return p ? <tr key={`${line.productId}-${line.productUnitId ?? "bulk"}-${index}`}><td>{p.name}</td><td dir="ltr">{line.productUnitId ? (saleProductUnits.find((unit)=>unit.id===line.productUnitId)?.imei || saleProductUnits.find((unit)=>unit.id===line.productUnitId)?.serialNumber || "مسجل") : "—"}</td><td>{formatMoney(p.salePrice)}</td><td>{line.quantity}</td><td>{formatMoney(p.salePrice * line.quantity)}</td><td><button className="text-button" onClick={() => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))}>إزالة</button></td></tr> : null; })}
             </tbody></table>{cart.length === 0 && <div className="table-empty">أضف منتجات إلى الفاتورة.</div>}</div>
           </div>
-          <div className="panel checkout-panel"><h3>ملخص الفاتورة</h3>
+          <div className="panel checkout-panel"><div className="checkout-heading"><span className="pos-section-kicker">02 / PAYMENT</span><h3>ملخص الفاتورة</h3><p>راجع الإجمالي والتحصيل قبل الترحيل.</p></div>
             <label className="field"><span>العميل</span><select value={saleCustomer} onChange={(e) => setSaleCustomer(e.target.value)}><option value="">عميل نقدي</option>{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-            <div className="checkout-total"><span>الإجمالي</span><strong>{formatMoney(cartTotal)}</strong></div>
+            <div className="checkout-total"><span>إجمالي الفاتورة</span><strong>{formatMoney(cartTotal)}</strong></div>
+            <div className="checkout-due"><span>المتبقي بعد الدفعة</span><strong>{formatMoney(Math.max(0, cartTotal - (Number(salePaid) || 0)))}</strong></div>
             <label className="field"><span>المبلغ المدفوع</span><input type="number" min="0" step="0.01" value={salePaid} onChange={(e) => setSalePaid(e.target.value)} /></label>
             <label className="field"><span>طريقة الدفع</span><select value={salePaymentMethod} onChange={(e) => setSalePaymentMethod(e.target.value as typeof salePaymentMethod)}><option value="cash">نقداً</option><option value="card">بطاقة</option><option value="transfer">تحويل</option><option value="mobile_wallet">محفظة إلكترونية</option><option value="other">أخرى</option></select></label>
             <button className="primary-button checkout-button" disabled={busy || !cart.length} onClick={() => void completeSale()}><CreditCard size={17} /> ترحيل الفاتورة</button>
             <p className="muted-help">يتم ترحيل الفاتورة وخصم المخزون وتسجيل الدفعة في معاملة قاعدة بيانات واحدة.</p>
           </div>
-        </section>}
+        </section>
+        </>}
 
         {section === "sales" && <section className="panel data-panel recent-sales-panel"><div className="panel-heading"><div><h3>آخر فواتير البيع</h3><p>آخر الفواتير المسجلة محلياً</p></div></div><div className="table-wrap"><table><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody>{sales.map((sale)=><tr key={sale.id}><td dir="ltr">{sale.invoiceNumber}</td><td>{sale.customerName}</td><td>{formatMoney(sale.total)}</td><td>{formatMoney(sale.paidAmount)}</td><td>{formatMoney(sale.total-sale.paidAmount)}</td><td>{new Date(sale.createdAt).toLocaleDateString("ar")}</td><td><button className="text-button" disabled={busy} onClick={()=>void openSaleReturn(sale)}>مرتجع</button></td></tr>)}</tbody></table>{sales.length===0&&<div className="table-empty">لا توجد فواتير بعد.</div>}</div></section>}
 
