@@ -34,7 +34,10 @@
     "longDescription": "نظام محلي لإدارة المنتجات والمبيعات والمخزون والصيانة والحسابات.",
     "category": "Business",
     "windows": {
-      "webviewInstallMode": "offlineInstaller"
+      "webviewInstallMode": {
+        "type": "offlineInstaller",
+        "silent": true
+      }
     }
   },
   "plugins": {
