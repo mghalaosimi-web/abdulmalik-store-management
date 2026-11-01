@@ -50,7 +50,7 @@ export async function findProductByBarcode(rawBarcode: string): Promise<Product 
 
 export async function createProduct(input: {
   sku: string; barcode?: string; name: string; category: string; brand?: string;
-  costPrice: number; salePrice: number; quantity: number; minQuantity: number;
+  costPrice: number; salePrice: number; quantity: number; minQuantity: number; imageData?: string | null;
 }): Promise<void> {
   const db = await getDatabase();
   const values = [input.sku.trim(), input.barcode?.trim() || null, input.name.trim(),
@@ -61,8 +61,8 @@ export async function createProduct(input: {
     throw new Error("الأسعار والكميات يجب أن تكون أرقاماً صحيحة غير سالبة.");
   }
   await db.execute(
-    `INSERT INTO products (id, sku, barcode, name, category, brand, cost_price, sale_price, quantity, min_quantity, status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active')`,
-    [crypto.randomUUID(), ...values],
+    `INSERT INTO products (id, sku, barcode, name, category, brand, cost_price, sale_price, quantity, min_quantity, status, image_data)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active',$11)`,
+    [crypto.randomUUID(), ...values, input.imageData || null],
   );
 }
