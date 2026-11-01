@@ -1,5 +1,5 @@
 import { getDatabase } from "./database";
-import { calculateLineTotal, fromMinorUnits, toMinorUnits } from "./money";
+import { fromMinorUnits, toMinorUnits } from "./money";
 import { postJournalEntryInTransaction, type JournalLineInput } from "./accounting";
 
 export interface SaleLineInput {
@@ -34,8 +34,8 @@ interface ProductForSale {
   id: string;
   sku: string;
   name: string;
-  cost_price: number;
-  sale_price: number;
+  cost_price_minor: number;
+  sale_price_minor: number;
   quantity: number;
   status: "active" | "inactive";
 }
@@ -85,7 +85,7 @@ export async function checkoutSale(input: CheckoutInput): Promise<CheckoutResult
   try {
     for (const [productId, requested] of grouped) {
       const products = await db.select<ProductForSale[]>(
-        `SELECT id, sku, name, cost_price, sale_price, quantity, status
+        `SELECT id, sku, name, cost_price_minor, sale_price_minor, quantity, status
          FROM products WHERE id = ? LIMIT 1`,
         [productId],
       );
@@ -101,9 +101,9 @@ export async function checkoutSale(input: CheckoutInput): Promise<CheckoutResult
       }
       const untrackedAvailable = product.quantity - units.length;
       if (requested.untrackedQuantity > untrackedAvailable) throw new Error(`يجب اختيار IMEI/Serial لكل جهاز مسجل؛ المتاح غير المسلسل للمنتج ${product.name}: ${untrackedAvailable}.`);
-      const lineTotalMinor = calculateLineTotal(product.sale_price, requested.quantity, 0);
+      const lineTotalMinor = product.sale_price_minor * requested.quantity;
       subtotalMinor += lineTotalMinor;
-      costOfGoodsMinor += toMinorUnits(product.cost_price) * requested.quantity;
+      costOfGoodsMinor += product.cost_price_minor * requested.quantity;
       if (!Number.isSafeInteger(subtotalMinor) || !Number.isSafeInteger(costOfGoodsMinor)) throw new Error("إجمالي الفاتورة أو التكلفة أكبر من النطاق المسموح.");
       rows.push({ product, quantity: requested.quantity, untrackedQuantity: requested.untrackedQuantity, unitIds: requested.unitIds, lineTotalMinor });
     }
@@ -116,26 +116,31 @@ export async function checkoutSale(input: CheckoutInput): Promise<CheckoutResult
     if (paymentAmount > totalMinor) throw new Error("المبلغ المدفوع لا يمكن أن يتجاوز إجمالي الفاتورة.");
 
     await db.execute(
-      `INSERT INTO sales(id, invoice_number, customer_id, subtotal, discount, tax_amount, total, paid_amount, status, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'posted', ?)`,
-      [saleId, invoiceNumber, input.customerId || null, fromMinorUnits(subtotalMinor), fromMinorUnits(invoiceDiscount), fromMinorUnits(taxMinor), fromMinorUnits(totalMinor), fromMinorUnits(paymentAmount), input.notes?.trim() || null],
+      `INSERT INTO sales(id, invoice_number, customer_id, subtotal, discount, tax_amount, total, paid_amount,
+                        subtotal_minor, discount_minor, tax_amount_minor, total_minor, paid_amount_minor, status, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'posted', ?)`,
+      [saleId, invoiceNumber, input.customerId || null, fromMinorUnits(subtotalMinor), fromMinorUnits(invoiceDiscount), fromMinorUnits(taxMinor), fromMinorUnits(totalMinor), fromMinorUnits(paymentAmount), subtotalMinor, invoiceDiscount, taxMinor, totalMinor, paymentAmount, input.notes?.trim() || null],
     );
 
     for (const row of rows) {
-      const unitPrice = fromMinorUnits(toMinorUnits(row.product.sale_price));
-      const unitCost = fromMinorUnits(toMinorUnits(row.product.cost_price));
+      const unitPriceMinor = row.product.sale_price_minor;
+      const unitCostMinor = row.product.cost_price_minor;
+      const unitPrice = fromMinorUnits(unitPriceMinor);
+      const unitCost = fromMinorUnits(unitCostMinor);
       if (row.untrackedQuantity > 0) {
         await db.execute(
-          `INSERT INTO sale_items(id, sale_id, product_id, quantity, unit_price, unit_cost, discount, line_total)
-           VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
-          [crypto.randomUUID(), saleId, row.product.id, row.untrackedQuantity, unitPrice, unitCost, fromMinorUnits(toMinorUnits(unitPrice) * row.untrackedQuantity)],
+          `INSERT INTO sale_items(id, sale_id, product_id, quantity, unit_price, unit_cost, discount, line_total,
+                                  unit_price_minor, unit_cost_minor, discount_minor, line_total_minor)
+           VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 0, ?)`,
+          [crypto.randomUUID(), saleId, row.product.id, row.untrackedQuantity, unitPrice, unitCost, fromMinorUnits(unitPriceMinor * row.untrackedQuantity), unitPriceMinor, unitCostMinor, unitPriceMinor * row.untrackedQuantity],
         );
       }
       for (const unitId of row.unitIds) {
         await db.execute(
-          `INSERT INTO sale_items(id, sale_id, product_id, product_unit_id, quantity, unit_price, unit_cost, discount, line_total)
-           VALUES (?, ?, ?, ?, 1, ?, ?, 0, ?)`,
-          [crypto.randomUUID(), saleId, row.product.id, unitId, unitPrice, unitCost, unitPrice],
+          `INSERT INTO sale_items(id, sale_id, product_id, product_unit_id, quantity, unit_price, unit_cost, discount, line_total,
+                                  unit_price_minor, unit_cost_minor, discount_minor, line_total_minor)
+           VALUES (?, ?, ?, ?, 1, ?, ?, 0, ?, ?, ?, 0, ?)`,
+          [crypto.randomUUID(), saleId, row.product.id, unitId, unitPrice, unitCost, unitPrice, unitPriceMinor, unitCostMinor, unitPriceMinor],
         );
         const unitUpdate = await db.execute("UPDATE product_units SET status = 'sold' WHERE id = ? AND product_id = ? AND status = 'in_stock'", [unitId, row.product.id]);
         if (unitUpdate.rowsAffected !== 1) throw new Error(`تعذر حجز/بيع الرقم التسلسلي للمنتج: ${row.product.name}.`);
@@ -160,9 +165,9 @@ export async function checkoutSale(input: CheckoutInput): Promise<CheckoutResult
         if (!cashSessionId) throw new Error("افتح وردية الصندوق قبل تسجيل تحصيل نقدي.");
       }
       await db.execute(
-        `INSERT INTO payments(id, direction, method, amount, reference_type, reference_id, note, cash_session_id)
-         VALUES (?, 'in', ?, ?, 'sale', ?, ?, ?)`,
-        [crypto.randomUUID(), input.paymentMethod ?? "cash", fromMinorUnits(paymentAmount), saleId, `تحصيل فاتورة ${invoiceNumber}`, cashSessionId],
+        `INSERT INTO payments(id, direction, method, amount, amount_minor, reference_type, reference_id, note, cash_session_id)
+         VALUES (?, 'in', ?, ?, ?, 'sale', ?, ?, ?)`,
+        [crypto.randomUUID(), input.paymentMethod ?? "cash", fromMinorUnits(paymentAmount), paymentAmount, saleId, `تحصيل فاتورة ${invoiceNumber}`, cashSessionId],
       );
     }
 
@@ -220,10 +225,10 @@ export async function listRecentSales(): Promise<RecentSale[]> {
   const db = await getDatabase();
   const rows = await db.select<Array<{
     id: string; invoice_number: string; customer_name: string | null;
-    total: number; paid_amount: number; status: string; created_at: string;
+    total_minor: number; paid_amount_minor: number; status: string; created_at: string;
   }>>(
     `SELECT s.id, s.invoice_number, COALESCE(c.name, 'عميل نقدي') AS customer_name,
-            s.total, s.paid_amount, s.status, s.created_at
+            s.total_minor, s.paid_amount_minor, s.status, s.created_at
      FROM sales s LEFT JOIN customers c ON c.id = s.customer_id
      ORDER BY s.created_at DESC LIMIT 100`,
   );
@@ -231,8 +236,8 @@ export async function listRecentSales(): Promise<RecentSale[]> {
     id: row.id,
     invoiceNumber: row.invoice_number,
     customerName: row.customer_name ?? "عميل نقدي",
-    total: row.total,
-    paidAmount: row.paid_amount,
+    total: fromMinorUnits(row.total_minor),
+    paidAmount: fromMinorUnits(row.paid_amount_minor),
     status: row.status,
     createdAt: row.created_at,
   }));
