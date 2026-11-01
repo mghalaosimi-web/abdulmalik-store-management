@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install pnpm
         run: npm install --global pnpm@10.12.1
 
