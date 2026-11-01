@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createSale } from "../lib/sales";
 import { findProductByBarcode, listProducts } from "../lib/products";
 import type { Product } from "../types";
-import { Barcode, Camera, CheckCircle2, Minus, Plus, Printer, Search, ShoppingCart, Trash2, UserRound } from "lucide-react";
+import { Barcode, Camera, CheckCircle2, Minus, Plus, Printer, Search, ShoppingCart, Trash2 } from "lucide-react";
 
 type CartLine = { product: Product; quantity: number };
 type Props = { onSaleCompleted?: () => void };
