@@ -14,6 +14,13 @@ export function toMinorUnits(value: number): number {
   return minor;
 }
 
+export function toMinorUnitsSigned(value: number): number {
+  if (!Number.isFinite(value)) throw new Error("المبلغ يجب أن يكون رقماً صالحاً.");
+  const minor = Math.round((value + Math.sign(value) * Number.EPSILON) * 100);
+  if (!Number.isSafeInteger(minor)) throw new Error("المبلغ أكبر من النطاق المسموح.");
+  return minor;
+}
+
 export function fromMinorUnits(value: number): number {
   if (!Number.isSafeInteger(value)) {
     throw new Error("وحدة المبلغ غير صالحة.");
