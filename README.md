@@ -2,86 +2,73 @@
 
 Arabic-first, offline-first Windows desktop management system for a telecommunications and electronics store.
 
-## Project status
+## Current implementation status
 
-**Foundation phase — not production-ready.** The repository is being initialized. No real store, customer, supplier, or financial data is included.
+**Active development — not production-ready.** The repository contains initial operational workflows for catalog, customers, suppliers, purchasing, POS checkout, partial sales/purchase returns, customer/supplier settlements, cash sessions, expenses, repair intake/status history, inventory adjustments, serialized-device sales, and basic reporting. Full acceptance, void/credit-note workflows, user authorization, backup/restore, and production release controls remain incomplete.
 
-## Product goals
+Do not enter live commercial data until the release gates in `docs/SECURITY.md` and `docs/IMPLEMENTATION-STATUS.md` are satisfied.
 
-- Windows desktop application with Tauri 2.
-- React + TypeScript user interface.
-- Local SQLite database with versioned migrations.
-- Arabic-first RTL experience with English-ready architecture.
-- Inventory, IMEI/serial tracking, purchasing, POS, accounting, repairs, warranty, customers, suppliers, staff, reporting, and audit history.
-- Offline operation for core store workflows.
-- Future-ready boundaries for optional synchronization, multi-branch support, and mobile/e-commerce products.
+## Technology
 
-## Initial technology decisions
+- Tauri 2 / Rust desktop host.
+- React 19 + TypeScript + Vite.
+- SQLite through the Tauri SQL plugin.
+- pnpm 10.12.1 package manager.
+- Vitest unit tests and Python SQLite migration verification.
+- GitHub Actions frontend and Windows installer workflows.
 
-| Area | Choice |
-|---|---|
-| Desktop shell | Tauri 2 |
-| UI | React + TypeScript + Vite |
-| Styling | CSS design tokens and component styles |
-| Local persistence | SQLite through the official Tauri SQL plugin |
-| Native layer | Rust |
-| Tests | Vitest |
-| CI | GitHub Actions |
+## Implemented operational workflows (initial)
 
-Technology versions are pinned in `package.json` and `src-tauri/Cargo.toml`. Review dependency updates before adopting them.
+- Product catalog create/list, validation, opening stock ledger entry, stock adjustments, ledger reconciliation, and low-stock indicators.
+- IMEI validation using the Luhn checksum and serial/IMEI unit registration.
+- Customer and supplier records.
+- POS checkout and partial sales returns with stock checks/restoration, immutable stock movements, payment recording, invoice references, and compensating journal entries in database transactions.
+- Purchase receiving with stock increases and weighted-average cost updates.
+- Cash drawer opening/closing with payments attributed to a specific cash session.
+- Expense vouchers with linked payment movements.
+- Customer receipts and supplier payments allocated to oldest outstanding invoices.
+- Partial purchase returns with current-stock protection and supplier credit/refund accounting.
+- Repair intake and validated status transitions with status history.
+- Initial double-entry journal posting for sales, purchases, and expenses, plus a trial-balance screen.
+- Initial ledger-derived profit summary covering sales returns, cost of goods sold, purchase-return variance, expenses, and inventory valuation.
+
+These are first operational implementations, not yet fully accepted commercial modules. See `docs/IMPLEMENTATION-STATUS.md` for limitations and remaining work.
 
 ## Getting started
 
-Prerequisites:
-- Node.js LTS
-- pnpm
-- Rust stable toolchain
-- Tauri platform prerequisites for Windows
-
-Install dependencies:
+Prerequisites: Node.js 22 LTS, pnpm 10.12.1, Rust stable, and Tauri platform prerequisites for Windows.
 
 ```bash
 pnpm install
+pnpm dev       # UI preview; database writes are disabled outside Tauri
+pnpm tauri dev # desktop app
 ```
 
-Run the UI in a browser for development:
+Run verification:
 
 ```bash
-pnpm dev
-```
-
-Run the desktop application:
-
-```bash
-pnpm tauri dev
-```
-
-Run checks:
-
-```bash
-pnpm lint
+python scripts/verify-migrations.py
 pnpm typecheck
+pnpm lint
 pnpm test
 pnpm build
 ```
 
-Build the Windows installer from a Windows runner:
+Build the Windows installer on a Windows runner:
 
 ```bash
 pnpm tauri build
 ```
 
-## Data safety
+## Data and financial rules
 
-- Never use real customer or financial data in tests.
+- Core workflows use local SQLite; the UI no longer depends on a remote font CDN.
+- Financial calculations use integer minor units in application logic, then persist to legacy SQLite `REAL` columns. A future schema revision must migrate monetary storage to integer minor units before accounting acceptance.
+- The initial currency setting is SAR and must be confirmed in store settings before live operation. Tax is disabled by default; tax and invoice rules must be reviewed against the store's jurisdiction and current requirements.
+- Cash payments require an open cash session and are linked to that exact session.
+- Stock movements, audit events, and payment rows are append-only at database level; corrections require compensating transactions.
 - Backups must be tested by restoring them, not merely by creating files.
-- Financial and stock movements must be recorded transactionally.
-- Do not hard-delete posted sales, payments, stock movements, or audit events.
-- Do not store credentials or payment secrets in the repository.
-
-## Ownership and contributors
-
-The repository is owned by `mghalaosimi-web`. Contributor access is managed in GitHub repository settings. Repository ownership must not be transferred without the owner's explicit decision.
+- Never use real customer or financial data in tests.
 
 ## Documentation
 
@@ -89,3 +76,14 @@ The repository is owned by `mghalaosimi-web`. Contributor access is managed in G
 - [Domain model](docs/DOMAIN-MODEL.md)
 - [Security and data safety](docs/SECURITY.md)
 - [Delivery roadmap](docs/ROADMAP.md)
+- [Implementation status and release gates](docs/IMPLEMENTATION-STATUS.md)
+- [Execution agenda](docs/EXECUTION-AGENDA.md)
+
+## Development requests and support
+
+The application provides a direct contact area for requesting custom development, additional modules, and technical support. Such work is discussed and agreed separately with **العصيمي للبرمجيات والحلول التقنية المتطورة** before implementation; no subscription or in-app paid-license flow is currently part of this release.
+
+- Phone / WhatsApp: `00967776778675`
+- WhatsApp contact: https://wa.me/message/NEVZVG5DC5CEA1
+
+The contact entry is informational and does not imply that a requested feature is already available or included in the current application.
