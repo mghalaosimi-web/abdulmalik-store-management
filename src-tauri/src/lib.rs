@@ -128,7 +128,7 @@ fn create_sale_transaction(
 
         transaction.execute(
             "INSERT INTO sales (id, invoice_number, subtotal, discount, tax_amount, total, paid_amount, status) VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, 'posted')",
-            params![input.sale_id, input.invoice_number, subtotal, discount, total, input.paid_amount],
+            params![input.sale_id, input.invoice_number, subtotal, discount, total, total],
         ).map_err(|error| error.to_string())?;
 
         let mut remaining_discount = discount;
@@ -158,7 +158,7 @@ fn create_sale_transaction(
         if input.paid_amount > 0.0 {
             transaction.execute(
                 "INSERT INTO payments (id, direction, method, amount, reference_type, reference_id, note) VALUES (lower(hex(randomblob(16))), 'in', 'cash', ?1, 'sale', ?2, ?3)",
-                params![input.paid_amount, input.sale_id, format!("Payment for {}", input.invoice_number)],
+                params![total, input.sale_id, format!("Payment for {}", input.invoice_number)],
             ).map_err(|error| error.to_string())?;
         }
 
@@ -167,7 +167,9 @@ fn create_sale_transaction(
             "subtotal": subtotal,
             "discount": discount,
             "total": total,
-            "paidAmount": input.paid_amount
+            "paidAmount": total,
+            "cashTendered": input.paid_amount,
+            "change": input.paid_amount - total
         }).to_string();
         transaction.execute(
             "INSERT INTO audit_logs (id, action, entity_type, entity_id, after_json) VALUES (lower(hex(randomblob(16))), 'create', 'sale', ?1, ?2)",
@@ -180,7 +182,7 @@ fn create_sale_transaction(
             subtotal,
             discount,
             total,
-            paid_amount: input.paid_amount,
+            paid_amount: total,
         })
     })();
 
