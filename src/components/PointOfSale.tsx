@@ -19,7 +19,7 @@ export default function PointOfSale({ onSaleCompleted }: Props) {
   const [paid, setPaid] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [lastInvoice, setLastInvoice] = useState<{ number: string; total: number; date: string } | null>(null);
+  const [lastInvoice, setLastInvoice] = useState<{ number: string; total: number; date: string; subtotal: number; discount: number; paid: number; change: number; items: Array<{ name: string; sku: string; quantity: number; unitPrice: number; lineTotal: number }> } | null>(null);
 
   useEffect(() => { scannerRef.current?.focus(); }, []);
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function PointOfSale({ onSaleCompleted }: Props) {
     setBusy(true); setMessage("");
     try {
       const result = await createSale({ items: cart.map((line) => ({ productId: line.product.id, quantity: line.quantity })), discount: discountValue, paidAmount });
-      setLastInvoice({ number: result.invoiceNumber, total: result.total, date: new Date().toLocaleString("ar-SA") });
+      setLastInvoice({ number: result.invoiceNumber, total: result.total, date: new Date().toLocaleString("ar-SA"), subtotal, discount: discountValue, paid: paidAmount, change: paidAmount - result.total, items: cart.map((line) => ({ name: line.product.name, sku: line.product.sku, quantity: line.quantity, unitPrice: line.product.salePrice, lineTotal: line.product.salePrice * line.quantity })) });
       setCart([]); setDiscount("0"); setPaid(""); setMessage("تم حفظ البيع وتحديث المخزون بنجاح.");
       onSaleCompleted?.();
       window.setTimeout(() => scannerRef.current?.focus(), 0);
@@ -103,6 +103,6 @@ export default function PointOfSale({ onSaleCompleted }: Props) {
       <div className="pos-totals"><div><span>الإجمالي قبل الخصم</span><strong>{money(subtotal)}</strong></div><label><span>الخصم</span><input type="number" min="0" max={subtotal} step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)}/></label><div className="pos-grand-total"><span>المطلوب</span><strong>{money(total)}</strong></div><label><span>المبلغ المستلم</span><input type="number" min={total} step="0.01" value={paid} placeholder={String(total.toFixed(2))} onChange={(e) => setPaid(e.target.value)}/></label><div><span>الباقي للعميل</span><strong>{money(Math.max(0, (Number(paid) || total) - total))}</strong></div></div>
       <button className="primary-button pos-checkout" disabled={!cart.length || busy} onClick={() => void checkout()}>{busy ? "جارٍ حفظ الفاتورة..." : "إتمام البيع وحفظ الفاتورة"}</button>
     </section>
-    {lastInvoice && <section className="panel pos-last-sale"><CheckCircle2 size={20}/><div><strong>آخر فاتورة: {lastInvoice.number}</strong><span>{lastInvoice.date} · {money(lastInvoice.total)}</span></div><button className="secondary-button" onClick={() => window.print()}><Printer size={16}/> طباعة</button></section>}
+    {lastInvoice && <><section className="panel pos-last-sale"><CheckCircle2 size={20}/><div><strong>آخر فاتورة: {lastInvoice.number}</strong><span>{lastInvoice.date} · {money(lastInvoice.total)}</span></div><button className="secondary-button" onClick={() => window.print()}><Printer size={16}/> طباعة الفاتورة</button></section><section className="pos-receipt" dir="rtl"><h2>عبدالملك للاتصالات والإلكترونيات</h2><h3>فاتورة بيع</h3><p>رقم الفاتورة: {lastInvoice.number}</p><p>التاريخ: {lastInvoice.date}</p><table><thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead><tbody>{lastInvoice.items.map((item,index)=><tr key={index}><td>{item.name}<small>{item.sku}</small></td><td>{item.quantity}</td><td>{money(item.unitPrice)}</td><td>{money(item.lineTotal)}</td></tr>)}</tbody></table><p>الإجمالي: {money(lastInvoice.subtotal)}</p><p>الخصم: {money(lastInvoice.discount)}</p><h3>الصافي: {money(lastInvoice.total)}</h3><p>المدفوع: {money(lastInvoice.paid)}</p><p>الباقي: {money(lastInvoice.change)}</p><p className="receipt-thanks">شكراً لزيارتكم</p></section></>}
   </div>;
 }
