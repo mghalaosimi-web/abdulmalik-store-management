@@ -38,7 +38,10 @@
         "type": "offlineInstaller",
         "silent": true
       }
-    }
+    },
+    "icon": [
+      "icons/icon.ico"
+    ]
   },
   "plugins": {
     "sql": {
