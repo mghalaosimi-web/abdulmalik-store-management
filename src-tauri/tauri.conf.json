@@ -22,19 +22,32 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "shortDescription": "نظام إدارة محل اتصالات وإلكترونيات",
     "longDescription": "نظام محلي لإدارة المنتجات والمبيعات والمخزون والصيانة والحسابات.",
-    "category": "Business"
+    "category": "Business",
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller",
+        "silent": true
+      }
+    },
+    "icon": [
+      "icons/icon.ico"
+    ]
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:abdulmalik-store.db"]
+      "preload": [
+        "sqlite:abdulmalik-store.db"
+      ]
     }
   }
 }

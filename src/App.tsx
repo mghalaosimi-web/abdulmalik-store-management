@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity, BarChart3, Boxes, BriefcaseBusiness, ClipboardList, CreditCard,
   Headphones, LayoutDashboard, Package, Plus, Search, Settings, ShoppingCart,
-  Users, Wrench, Wifi, X,
+  Users, Wrench, Wifi, X, Rocket, Database, Cloud, ShieldCheck, MessageCircle, ClipboardCopy, Check,
 } from "lucide-react";
 import { createProduct, listProducts } from "./lib/products";
 import { isDesktopRuntime } from "./lib/database";
 import type { Product } from "./types";
 import PointOfSale from "./components/PointOfSale";
 
-type Section = "dashboard" | "products" | "sales" | "customers" | "repairs" | "reports" | "settings";
+type Section = "dashboard" | "products" | "sales" | "customers" | "repairs" | "reports" | "settings" | "roadmap";
 
 const navigation: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "الرئيسية", icon: LayoutDashboard },
@@ -19,6 +19,7 @@ const navigation: { id: Section; label: string; icon: typeof LayoutDashboard }[]
   { id: "repairs", label: "الصيانة والضمان", icon: Wrench },
   { id: "reports", label: "التقارير", icon: BarChart3 },
   { id: "settings", label: "الإعدادات", icon: Settings },
+  { id: "roadmap", label: "قاعدة التطوير", icon: Rocket },
 ];
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
   const [showCreate, setShowCreate] = useState(false);
   const [desktop, setDesktop] = useState(false);
   const [error, setError] = useState("");
+  const [copiedRoadmap, setCopiedRoadmap] = useState(false);
 
   async function refreshProducts(term = search) {
     if (!isDesktopRuntime()) return;
@@ -120,7 +122,12 @@ export default function App() {
         {section === "products" && <section className="panel data-panel"><div className="panel-heading"><div><h3>المنتجات والمخزون</h3><p>إدارة الأصناف والأسعار والكميات المتاحة</p></div><button className="primary-button" onClick={() => setShowCreate(true)}><Plus size={17} /> إضافة منتج</button></div><div className="table-toolbar"><label className="search-box"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث بالاسم أو الرمز أو العلامة التجارية" /></label><span className="result-count">{products.length} منتج</span></div><div className="table-wrap"><table><thead><tr><th>المنتج</th><th>رمز SKU</th><th>الباركود</th><th>التصنيف</th><th>سعر التكلفة</th><th>سعر البيع</th><th>الكمية</th><th>الحالة</th></tr></thead><tbody>{products.map((p) => <tr key={p.id}><td><div className="product-name-cell">{p.imageData ? <img src={p.imageData} alt="" /> : <span className="product-image-placeholder">صورة</span>}<div><strong>{p.name}</strong><small>{p.brand || "بدون علامة تجارية"}</small></div></div></td><td dir="ltr">{p.sku}</td><td dir="ltr">{p.barcode || "—"}</td><td>{p.category}</td><td>{p.costPrice.toLocaleString("ar")}</td><td>{p.salePrice.toLocaleString("ar")}</td><td><span className={p.quantity <= p.minQuantity ? "quantity low" : "quantity"}>{p.quantity}</span></td><td><span className="pill success">نشط</span></td></tr>)}</tbody></table>{products.length === 0 && <div className="table-empty">لا توجد منتجات مسجلة حتى الآن.</div>}</div></section>}
 
         {section === "sales" && <PointOfSale onSaleCompleted={() => void refreshProducts("")} />}
-        {section !== "dashboard" && section !== "products" && section !== "sales" && <section className="panel placeholder-panel"><div className="empty-icon"><ClipboardList size={25} /></div><h3>{navigation.find((item) => item.id === section)?.label}</h3><p>هذه الوحدة مدرجة في خارطة التنفيذ. لن تُعرض كوظيفة مكتملة قبل تنفيذ منطقها وربطها واختبارها.</p><span className="subtle-tag">قيد التطوير</span></section>}
+        {section === "roadmap" && <DevelopmentRoadmap copied={copiedRoadmap} onCopy={async () => {
+          const message = "طلب تطوير نظام عبدالملك لإدارة المتجر\\n\\nأرغب في مناقشة تنفيذ المرحلة التالية من خارطة التطوير، مع تحديد المتطلبات والاعتماديات والاختبارات قبل اعتمادها.\\n\\nالأولوية: [اكتب الأولوية]\\nالميزة المطلوبة: [اكتب الميزة]\\nملاحظات: [اكتب التفاصيل]";
+          try { await navigator.clipboard.writeText(message); setCopiedRoadmap(true); window.setTimeout(() => setCopiedRoadmap(false), 2500); }
+          catch { setError("تعذر النسخ تلقائياً. يمكنك تحديد نص الطلب ونسخه يدوياً."); }
+        }} />}
+        {section !== "dashboard" && section !== "products" && section !== "sales" && section !== "roadmap" && <section className="panel placeholder-panel"><div className="empty-icon"><ClipboardList size={25} /></div><h3>{navigation.find((item) => item.id === section)?.label}</h3><p>هذه الوحدة مدرجة في خارطة التنفيذ. لن تُعرض كوظيفة مكتملة قبل تنفيذ منطقها وربطها واختبارها.</p><span className="subtle-tag">قيد التطوير</span></section>}
       </main>
 
       {showCreate && <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowCreate(false); }}><form className="modal" onSubmit={(e) => { e.preventDefault(); void handleCreate(e.currentTarget); }}><div className="modal-heading"><div><h2>إضافة منتج جديد</h2><p>أدخل بيانات الصنف الأساسية</p></div><button type="button" className="icon-button" onClick={() => setShowCreate(false)} aria-label="إغلاق"><X size={19} /></button></div><div className="form-grid"><Field name="name" label="اسم المنتج" required /><Field name="image" label="صورة المنتج" type="file" /><Field name="sku" label="رمز SKU" required /><Field name="barcode" label="الباركود (EAN/UPC)" /><Field name="category" label="التصنيف" required /><Field name="brand" label="العلامة التجارية" /><Field name="costPrice" label="سعر التكلفة" type="number" min="0" step="0.01" required /><Field name="salePrice" label="سعر البيع" type="number" min="0" step="0.01" required /><Field name="quantity" label="الكمية الافتتاحية" type="number" min="0" required /><Field name="minQuantity" label="حد التنبيه" type="number" min="0" required /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowCreate(false)}>إلغاء</button><button className="primary-button" type="submit">حفظ المنتج</button></div></form></div>}
@@ -128,7 +135,65 @@ export default function App() {
   );
 }
 
-function readImage(file: File): Promise<string> { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("تعذر قراءة الصورة.")); reader.onerror = () => reject(new Error("تعذر قراءة الصورة.")); reader.readAsDataURL(file); }); }
+async function readImage(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("الملف المحدد ليس صورة.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("حجم الصورة الأصلية يجب ألا يتجاوز 10 ميجابايت.");
+  const bitmap = await createImageBitmap(file);
+  try {
+    const maxDimension = 1200;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("تعذر تجهيز الصورة.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("تعذر ضغط الصورة.")), "image/jpeg", 0.78);
+    });
+    if (blob.size > 900 * 1024) throw new Error("الصورة بعد الضغط أكبر من الحد المسموح (900 كيلوبايت).");
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("تعذر قراءة الصورة المضغوطة."));
+      reader.onerror = () => reject(new Error("تعذر قراءة الصورة المضغوطة."));
+      reader.readAsDataURL(blob);
+    });
+  } finally {
+    bitmap.close();
+  }
+}
+
+
+function DevelopmentRoadmap({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
+  const phases = [
+    { title: "تثبيت الأساس المحلي", status: "المرحلة الحالية", tone: "current", tasks: ["إكمال قاعدة SQLite وترحيلاتها والتحقق من سلامة البيانات", "إصدار مثبت Windows مستقل مع وضع تثبيت WebView2 دون إنترنت", "اختبار النسخ الاحتياطي والاستعادة محلياً", "إكمال دورة البيع والمخزون والفواتير والمرتجعات"] },
+    { title: "إكمال وحدات المتجر", status: "ضمن الخطة", tone: "planned", tasks: ["إدارة العملاء والموردين وسجل التعاملات", "المشتريات والمصروفات والصندوق والورديات", "الصيانة والضمان وتتبع الأجهزة عبر IMEI / Serial", "التقارير المالية والأرباح وحركة المخزون والصلاحيات"] },
+    { title: "التكاملات الاختيارية عبر الإنترنت", status: "مرحلة مستقبلية", tone: "future", tasks: ["ربط Google Drive للنسخ الاحتياطي السحابي بموافقة المستخدم", "تكامل Google Sheets أو خدمات Google عند الحاجة", "روابط WhatsApp والبريد والاتصال من ملفات العملاء", "آلية تحديث البرنامج والتحقق من الإصدارات"] },
+    { title: "الأمان والجودة والتوزيع", status: "ضمن الخطة", tone: "planned", tasks: ["تسجيل دخول وصلاحيات وأثر تدقيقي للعمليات الحساسة", "اختبارات قبول شاملة واستعادة قاعدة البيانات بعد الأعطال", "توقيع المثبت وإعداد معلومات الإصدار والترخيص", "دليل استخدام وترحيل بيانات ودعم فني"] },
+  ];
+  return <div className="roadmap-page">
+    <section className="roadmap-hero">
+      <div className="roadmap-hero-copy"><span className="roadmap-kicker">PRODUCT DEVELOPMENT · ROADMAP</span><h2>قاعدة التطوير</h2><p>هذه الصفحة توضح ما تم تأسيسه وما سيُنفّذ لاحقاً. وجود الميزة هنا لا يعني أنها مفعّلة حالياً.</p><div className="roadmap-principle"><ShieldCheck size={17}/><span>الأصل: يعمل المتجر محلياً دون إنترنت. أي ربط خارجي سيكون اختيارياً ولن يعطّل الوظائف الأساسية.</span></div></div>
+      <div className="roadmap-hero-icon"><Rocket size={54} strokeWidth={1.2}/></div>
+    </section>
+    <section className="roadmap-summary">
+      <article><Database size={19}/><div><strong>Local First</strong><span>قاعدة بيانات محلية</span></div></article>
+      <article><Cloud size={19}/><div><strong>Optional Cloud</strong><span>خدمات سحابية اختيارية مستقبلاً</span></div></article>
+      <article><ShieldCheck size={19}/><div><strong>Verified Release</strong><span>لا اعتماد قبل الاختبار</span></div></article>
+    </section>
+    <div className="roadmap-section-heading"><div><h3>مراحل التنفيذ والمهام</h3><p>خطة التطوير المقترحة للنظام</p></div><span className="subtle-tag">خارطة طريق مبدئية</span></div>
+    <div className="roadmap-phases">{phases.map((phase, index) => <section className={`roadmap-phase ${phase.tone}`} key={phase.title}>
+      <div className="phase-index">{String(index + 1).padStart(2, "0")}</div>
+      <div className="phase-content"><div className="phase-title-row"><h3>{phase.title}</h3><span className={`phase-status ${phase.tone}`}>{phase.status}</span></div><ul>{phase.tasks.map((task) => <li key={task}><span className="task-bullet"/>{task}</li>)}</ul></div>
+    </section>)}</div>
+    <section className="roadmap-contact">
+      <div className="roadmap-contact-icon"><MessageCircle size={23}/></div>
+      <div className="roadmap-contact-copy"><h3>طلب تطوير أو متابعة ميزة</h3><p>عند رغبتك في استكمال ميزة، افتح قناة التواصل المعتمدة مع المطوّر وأرسل تفاصيل الطلب. انسخ النص الجاهز أدناه وأضف اسم الميزة والأولوية. لا يوجد اتصال خارجي مفعّل من هذه الصفحة حالياً.</p><div className="roadmap-contact-note">سيتم الاتفاق على المتطلبات، ثم تنفيذ الميزة واختبارها قبل نقلها إلى حالة «مكتملة».</div></div>
+      <button className="primary-button roadmap-copy-button" onClick={onCopy}>{copied ? <Check size={16}/> : <ClipboardCopy size={16}/>} {copied ? "تم نسخ نص الطلب" : "نسخ نص طلب التطوير"}</button>
+    </section>
+    <p className="roadmap-footnote">ملاحظة: Google Drive وWhatsApp والبريد والتحديث عبر الإنترنت عناصر مستقبلية فقط؛ لن تطلب بيانات حسابك ولن تتصل بالإنترنت قبل تنفيذها وإظهار إعداداتها وموافقتك.</p>
+  </div>;
+}
 
 function StatCard({ icon: Icon, label, value, detail }: { icon: typeof Package; label: string; value: string; detail: string }) {
   return <article className="stat-card"><div className="stat-top"><span>{label}</span><div className="stat-icon"><Icon size={19} /></div></div><strong className="stat-value">{value}</strong><span className="stat-detail">{detail}</span></article>;
