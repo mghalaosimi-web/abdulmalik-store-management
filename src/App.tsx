@@ -128,7 +128,33 @@ export default function App() {
   );
 }
 
-function readImage(file: File): Promise<string> { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("تعذر قراءة الصورة.")); reader.onerror = () => reject(new Error("تعذر قراءة الصورة.")); reader.readAsDataURL(file); }); }
+async function readImage(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("الملف المحدد ليس صورة.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("حجم الصورة الأصلية يجب ألا يتجاوز 10 ميجابايت.");
+  const bitmap = await createImageBitmap(file);
+  try {
+    const maxDimension = 1200;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("تعذر تجهيز الصورة.");
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("تعذر ضغط الصورة.")), "image/jpeg", 0.78);
+    });
+    if (blob.size > 900 * 1024) throw new Error("الصورة بعد الضغط أكبر من الحد المسموح (900 كيلوبايت).");
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("تعذر قراءة الصورة المضغوطة."));
+      reader.onerror = () => reject(new Error("تعذر قراءة الصورة المضغوطة."));
+      reader.readAsDataURL(blob);
+    });
+  } finally {
+    bitmap.close();
+  }
+}
 
 function StatCard({ icon: Icon, label, value, detail }: { icon: typeof Package; label: string; value: string; detail: string }) {
   return <article className="stat-card"><div className="stat-top"><span>{label}</span><div className="stat-icon"><Icon size={19} /></div></div><strong className="stat-value">{value}</strong><span className="stat-detail">{detail}</span></article>;
