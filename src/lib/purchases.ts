@@ -16,7 +16,7 @@ export interface PurchaseResult {
   purchaseId: string; invoiceNumber: string; total: number; paidAmount: number; balanceDue: number;
 }
 
-interface ProductStock { id: string; name: string; quantity: number; cost_price: number }
+interface ProductStock { id: string; name: string; quantity: number; cost_price_minor: number }
 
 export async function receivePurchase(input: PurchaseInput): Promise<PurchaseResult> {
   if (!input.supplierId) throw new Error("اختر المورد.");
@@ -44,7 +44,7 @@ export async function receivePurchase(input: PurchaseInput): Promise<PurchaseRes
     let subtotalMinor = 0;
     for (const [productId, line] of normalized) {
       const found = await db.select<ProductStock[]>(
-        "SELECT id, name, quantity, cost_price FROM products WHERE id = ? AND status = 'active' LIMIT 1",
+        "SELECT id, name, quantity, cost_price_minor FROM products WHERE id = ? AND status = 'active' LIMIT 1",
         [productId],
       );
       const product = found[0];
@@ -61,9 +61,10 @@ export async function receivePurchase(input: PurchaseInput): Promise<PurchaseRes
     if (paidMinor > totalMinor) throw new Error("المبلغ المدفوع يتجاوز إجمالي فاتورة الشراء.");
 
     await db.execute(
-      `INSERT INTO purchase_orders(id, invoice_number, supplier_id, subtotal, discount, tax_amount, total, paid_amount, status, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'posted', ?)`,
-      [purchaseId, invoiceNumber, input.supplierId, fromMinorUnits(subtotalMinor), fromMinorUnits(discountMinor), fromMinorUnits(taxMinor), fromMinorUnits(totalMinor), fromMinorUnits(paidMinor), input.notes?.trim() || null],
+      `INSERT INTO purchase_orders(id, invoice_number, supplier_id, subtotal, discount, tax_amount, total, paid_amount,
+                                  subtotal_minor, discount_minor, tax_amount_minor, total_minor, paid_amount_minor, status, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'posted', ?)`,
+      [purchaseId, invoiceNumber, input.supplierId, fromMinorUnits(subtotalMinor), fromMinorUnits(discountMinor), fromMinorUnits(taxMinor), fromMinorUnits(totalMinor), fromMinorUnits(paidMinor), subtotalMinor, discountMinor, taxMinor, totalMinor, paidMinor, input.notes?.trim() || null],
     );
 
     let allocatedDiscountMinor = 0;
@@ -76,16 +77,17 @@ export async function receivePurchase(input: PurchaseInput): Promise<PurchaseRes
       const netLineMinor = row.lineMinor - allocated;
       const effectiveUnitCostMinor = Math.round(netLineMinor / row.quantity);
       await db.execute(
-        "INSERT INTO purchase_items(id, purchase_id, product_id, quantity, unit_cost, line_total) VALUES (?, ?, ?, ?, ?, ?)",
-        [crypto.randomUUID(), purchaseId, row.product.id, row.quantity, fromMinorUnits(effectiveUnitCostMinor), fromMinorUnits(netLineMinor)],
+        `INSERT INTO purchase_items(id, purchase_id, product_id, quantity, unit_cost, line_total, unit_cost_minor, line_total_minor)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [crypto.randomUUID(), purchaseId, row.product.id, row.quantity, fromMinorUnits(effectiveUnitCostMinor), fromMinorUnits(netLineMinor), effectiveUnitCostMinor, netLineMinor],
       );
       const newQuantity = row.product.quantity + row.quantity;
       if (!Number.isSafeInteger(newQuantity)) throw new Error("كمية المخزون الجديدة أكبر من النطاق المسموح.");
-      const oldValue = toMinorUnits(row.product.cost_price) * row.product.quantity;
+      const oldValue = row.product.cost_price_minor * row.product.quantity;
       const newAverageCost = Math.round((oldValue + netLineMinor) / newQuantity);
       await db.execute(
-        "UPDATE products SET quantity = ?, cost_price = ?, updated_at = datetime('now') WHERE id = ?",
-        [newQuantity, fromMinorUnits(newAverageCost), row.product.id],
+        "UPDATE products SET quantity = ?, cost_price = ?, cost_price_minor = ?, updated_at = datetime('now') WHERE id = ?",
+        [newQuantity, fromMinorUnits(newAverageCost), newAverageCost, row.product.id],
       );
       await db.execute(
         "INSERT INTO stock_movements(id, product_id, movement_type, quantity_delta, reference_type, reference_id, note) VALUES (?, ?, 'purchase', ?, 'purchase', ?, ?)",
@@ -96,17 +98,17 @@ export async function receivePurchase(input: PurchaseInput): Promise<PurchaseRes
       let cashSessionId: string | null = null;
       if ((input.paymentMethod ?? "cash") === "cash") {
         const sessions = await db.select<Array<{ id: string; balance: number }>>(
-          `SELECT cs.id, cs.opening_amount + COALESCE((SELECT SUM(CASE WHEN p.direction = 'in' THEN p.amount ELSE -p.amount END) FROM payments p WHERE p.cash_session_id = cs.id), 0) AS balance
+          `SELECT cs.id, cs.opening_amount_minor + COALESCE((SELECT SUM(CASE WHEN p.direction = 'in' THEN p.amount_minor ELSE -p.amount_minor END) FROM payments p WHERE p.cash_session_id = cs.id), 0) AS balance
            FROM cash_sessions cs WHERE cs.status = 'open' LIMIT 1`,
         );
         cashSessionId = sessions[0]?.id ?? null;
         if (!cashSessionId) throw new Error("افتح وردية الصندوق قبل تسجيل سداد نقدي.");
-        if (toMinorUnits(sessions[0].balance) < paidMinor) throw new Error("رصيد الصندوق غير كافٍ لإتمام السداد النقدي.");
+        if (sessions[0].balance < paidMinor) throw new Error("رصيد الصندوق غير كافٍ لإتمام السداد النقدي.");
       }
       await db.execute(
-        `INSERT INTO payments(id, direction, method, amount, reference_type, reference_id, note, cash_session_id)
-         VALUES (?, 'out', ?, ?, 'purchase', ?, ?, ?)`,
-        [crypto.randomUUID(), input.paymentMethod ?? "cash", fromMinorUnits(paidMinor), purchaseId, `سداد فاتورة شراء ${invoiceNumber}`, cashSessionId],
+        `INSERT INTO payments(id, direction, method, amount, amount_minor, reference_type, reference_id, note, cash_session_id)
+         VALUES (?, 'out', ?, ?, ?, 'purchase', ?, ?, ?)`,
+        [crypto.randomUUID(), input.paymentMethod ?? "cash", fromMinorUnits(paidMinor), paidMinor, purchaseId, `سداد فاتورة شراء ${invoiceNumber}`, cashSessionId],
       );
     }
     const journalLines: JournalLineInput[] = [];
@@ -138,10 +140,10 @@ export async function receivePurchase(input: PurchaseInput): Promise<PurchaseRes
 export interface RecentPurchase { id: string; invoiceNumber: string; supplierName: string; total: number; paidAmount: number; createdAt: string }
 export async function listRecentPurchases(): Promise<RecentPurchase[]> {
   const db = await getDatabase();
-  const rows = await db.select<Array<{ id: string; invoice_number: string; supplier_name: string; total: number; paid_amount: number; created_at: string }>>(
-    `SELECT p.id, p.invoice_number, s.name AS supplier_name, p.total, p.paid_amount, p.created_at
+  const rows = await db.select<Array<{ id: string; invoice_number: string; supplier_name: string; total_minor: number; paid_amount_minor: number; created_at: string }>>(
+    `SELECT p.id, p.invoice_number, s.name AS supplier_name, p.total_minor, p.paid_amount_minor, p.created_at
      FROM purchase_orders p JOIN suppliers s ON s.id = p.supplier_id
      ORDER BY p.created_at DESC LIMIT 100`,
   );
-  return rows.map((row) => ({ id: row.id, invoiceNumber: row.invoice_number, supplierName: row.supplier_name, total: row.total, paidAmount: row.paid_amount, createdAt: row.created_at }));
+  return rows.map((row) => ({ id: row.id, invoiceNumber: row.invoice_number, supplierName: row.supplier_name, total: fromMinorUnits(row.total_minor), paidAmount: fromMinorUnits(row.paid_amount_minor), createdAt: row.created_at }));
 }
