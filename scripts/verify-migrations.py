@@ -133,9 +133,15 @@ for migration in legacy_migrations:
     if migration.name == "0007_money_minor_units.sql":
         break
     legacy.executescript(migration.read_text(encoding="utf-8"))
+legacy.execute("INSERT INTO products(id, sku, name, category, cost_price, sale_price) VALUES ('money-product', 'MONEY-1', 'Money test', 'Phones', 100.125, 120.50)")
+legacy.execute("INSERT INTO sales(id, invoice_number, subtotal, discount, tax_amount, total, paid_amount, status) VALUES ('money-sale', 'MONEY-INV', 120.50, 0.25, 0, 120.25, 50.005, 'draft')")
+legacy.execute("INSERT INTO payments(id, direction, method, amount) VALUES ('money-payment', 'in', 'cash', 50.005)")
 legacy.execute("INSERT INTO cash_sessions(id, opening_amount, variance, status) VALUES ('cs-money', 12.345, -1.235, 'closed')")
 legacy.execute("INSERT INTO repairs(id, job_number, device_type, reported_issue, final_cost) VALUES ('r-money', 'R-MONEY', 'phone', 'test', NULL)")
 legacy.executescript((ROOT / "database" / "migrations" / "0007_money_minor_units.sql").read_text(encoding="utf-8"))
+assert legacy.execute("SELECT cost_price_minor, sale_price_minor FROM products WHERE id='money-product'").fetchone() == (10013, 12050)
+assert legacy.execute("SELECT subtotal_minor, discount_minor, total_minor, paid_amount_minor FROM sales WHERE id='money-sale'").fetchone() == (12050, 25, 12025, 5001)
+assert legacy.execute("SELECT amount_minor FROM payments WHERE id='money-payment'").fetchone() == (5001,)
 assert legacy.execute("SELECT opening_amount_minor, variance_minor FROM cash_sessions WHERE id='cs-money'").fetchone() == (1235, -124)
 assert legacy.execute("SELECT final_cost_minor FROM repairs WHERE id='r-money'").fetchone() == (None,)
 
