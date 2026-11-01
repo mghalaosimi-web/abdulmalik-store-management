@@ -4,6 +4,7 @@ export interface Product {
   id: string;
   sku: string;
   barcode: string | null;
+  imageData: string | null;
   name: string;
   category: string;
   brand: string | null;
