@@ -178,6 +178,23 @@ export default function App() {
     void load();
   }, [desktop, section, search, refreshProducts, refreshCustomers, refreshSales, refreshRepairs, refreshSuppliers, refreshPurchases, refreshCash, refreshReport, refreshDashboard, refreshAccounting]);
 
+  useEffect(() => {
+    const handleGlobalShortcuts = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        document.querySelector<HTMLInputElement>(".header-search input")?.focus();
+      }
+      if (event.key === "F2" && !event.repeat) {
+        event.preventDefault();
+        setSection("sales");
+        setSearch("");
+        setError("");
+      }
+    };
+    window.addEventListener("keydown", handleGlobalShortcuts);
+    return () => window.removeEventListener("keydown", handleGlobalShortcuts);
+  }, []);
+
   const lowStock = useMemo(() => products.filter((p) => p.quantity <= p.minQuantity).length, [products]);
   const purchaseTotal = useMemo(() => purchaseCart.reduce((sum, line) => sum + line.unitCost * line.quantity, 0), [purchaseCart]);
   const cartTotal = useMemo(() => cart.reduce((sum, line) => {
