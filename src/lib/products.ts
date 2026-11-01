@@ -8,8 +8,8 @@ interface ProductRow {
   name: string;
   category: string;
   brand: string | null;
-  cost_price: number;
-  sale_price: number;
+  cost_price_minor: number;
+  sale_price_minor: number;
   quantity: number;
   min_quantity: number;
   status: "active" | "inactive";
@@ -23,8 +23,8 @@ function mapProduct(row: ProductRow): Product {
     name: row.name,
     category: row.category,
     brand: row.brand,
-    costPrice: row.cost_price,
-    salePrice: row.sale_price,
+    costPrice: row.cost_price_minor / 100,
+    salePrice: row.sale_price_minor / 100,
     quantity: row.quantity,
     minQuantity: row.min_quantity,
     status: row.status,
@@ -36,7 +36,7 @@ export async function listProducts(search = ""): Promise<Product[]> {
   const db = await getDatabase();
   const term = `%${search.trim()}%`;
   const rows = await db.select<ProductRow[]>(
-    `SELECT id, sku, name, category, brand, cost_price, sale_price,
+    `SELECT id, sku, name, category, brand, cost_price_minor, sale_price_minor,
             quantity, min_quantity, status, created_at
      FROM products
      WHERE ($1 = '%%' OR name LIKE $2 OR sku LIKE $3 OR COALESCE(brand, '') LIKE $4)
@@ -61,13 +61,13 @@ export async function createProduct(input: {
   const id = crypto.randomUUID();
   await db.execute(
     `INSERT INTO products
-      (id, sku, name, category, brand, cost_price, sale_price, quantity, min_quantity, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active')`,
+      (id, sku, name, category, brand, cost_price, sale_price, cost_price_minor, sale_price_minor, quantity, min_quantity, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'active')`,
     [
       id, input.sku.trim(), input.name.trim(), input.category.trim(),
-      input.brand?.trim() || null, Math.round((input.costPrice + Number.EPSILON) * 100) / 100,
-      Math.round((input.salePrice + Number.EPSILON) * 100) / 100,
-      input.quantity, input.minQuantity,
+      input.brand?.trim() || null, Math.round(input.costPrice * 100) / 100,
+      Math.round(input.salePrice * 100) / 100, Math.round(input.costPrice * 100),
+      Math.round(input.salePrice * 100), input.quantity, input.minQuantity,
     ],
   );
 }
