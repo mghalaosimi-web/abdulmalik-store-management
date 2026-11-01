@@ -124,4 +124,19 @@ try:
 except sqlite3.IntegrityError:
     pass
 
+# Migration 0007 must backfill legacy values exactly to nearest halala, preserve NULL,
+# preserve signed cash variances, and preserve nullable values.
+legacy = sqlite3.connect(":memory:")
+legacy.execute("PRAGMA foreign_keys = ON")
+legacy_migrations = sorted((ROOT / "database" / "migrations").glob("*.sql"))
+for migration in legacy_migrations:
+    if migration.name == "0007_money_minor_units.sql":
+        break
+    legacy.executescript(migration.read_text(encoding="utf-8"))
+legacy.execute("INSERT INTO cash_sessions(id, opening_amount, variance, status) VALUES ('cs-money', 12.345, -1.235, 'closed')")
+legacy.execute("INSERT INTO repairs(id, job_number, device_type, reported_issue, final_cost) VALUES ('r-money', 'R-MONEY', 'phone', 'test', NULL)")
+legacy.executescript((ROOT / "database" / "migrations" / "0007_money_minor_units.sql").read_text(encoding="utf-8"))
+assert legacy.execute("SELECT opening_amount_minor, variance_minor FROM cash_sessions WHERE id='cs-money'").fetchone() == (1235, -124)
+assert legacy.execute("SELECT final_cost_minor FROM repairs WHERE id='r-money'").fetchone() == (None,)
+
 print(f"SQLite migrations verified: {len(required_tables)} required tables; opening stock, immutable ledgers, SKU uniqueness, cash-session attribution, seeded chart of accounts, and balanced/immutable journals, posted-sale immutability, and draft-only journal posting, and immutable sale-return ledger, immutable customer settlement allocations, and immutable purchase-return ledger passed.")
