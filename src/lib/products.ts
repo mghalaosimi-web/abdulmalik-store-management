@@ -5,6 +5,7 @@ interface ProductRow {
   id: string;
   sku: string;
   barcode: string | null;
+  image_data: string | null;
   name: string;
   category: string;
   brand: string | null;
@@ -18,14 +19,14 @@ interface ProductRow {
 
 function mapProduct(row: ProductRow): Product {
   return {
-    id: row.id, sku: row.sku, barcode: row.barcode, name: row.name,
+    id: row.id, sku: row.sku, barcode: row.barcode, imageData: row.image_data, name: row.name,
     category: row.category, brand: row.brand, costPrice: row.cost_price,
     salePrice: row.sale_price, quantity: row.quantity,
     minQuantity: row.min_quantity, status: row.status, createdAt: row.created_at,
   };
 }
 
-const SELECT_PRODUCT = `SELECT id, sku, barcode, name, category, brand, cost_price, sale_price,
+const SELECT_PRODUCT = `SELECT id, sku, barcode, image_data, name, category, brand, cost_price, sale_price,
   quantity, min_quantity, status, created_at FROM products`;
 
 export async function listProducts(search = ""): Promise<Product[]> {
