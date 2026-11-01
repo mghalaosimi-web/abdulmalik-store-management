@@ -493,13 +493,18 @@ export default function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand"><div className="brand-mark"><img src={storeLogo} alt="شعار عبدالملك للاتصالات والإلكترونيات" /></div><div><strong>عبدالملك</strong><span>للاتصالات والإلكترونيات</span></div></div>
-        <div className="store-label">إدارة المتجر <span className="status-dot" /></div>
+        <div className="store-label"><span>مساحة العمل</span><span className="status-dot" /></div>
+        <button className={section === "sales" ? "pos-shortcut active" : "pos-shortcut"} onClick={() => { setSection("sales"); setSearch(""); setError(""); }}>
+          <ShoppingCart size={18} /><span>نقطة البيع السريعة</span><kbd>F2</kbd>
+        </button>
         <nav className="navigation" aria-label="التنقل الرئيسي">
-          <p className="nav-caption">القائمة الرئيسية</p>
-          {navigation.map(({ id, label, icon: Icon }) => (
-            <button key={id} className={section === id ? "nav-item active" : "nav-item"} onClick={() => { setSection(id); setSearch(""); setError(""); }}>
-              <Icon size={18} strokeWidth={1.8} /><span>{label}</span>
-            </button>
+          {navigation.map(({ id, label, icon: Icon }, index) => (
+            <div className="nav-entry" key={id}>
+              {([0, 1, 4, 6, 8, 10].includes(index)) && <p className="nav-caption">{({0:"الرئيسية",1:"العمليات",4:"العلاقات",6:"الخدمات",8:"المالية والتقارير",10:"الإدارة"})[index]}</p>}
+              <button className={section === id ? "nav-item active" : "nav-item"} onClick={() => { setSection(id); setSearch(""); setError(""); }}>
+                <Icon size={18} strokeWidth={1.8} /><span>{label}</span>
+              </button>
+            </div>
           ))}
         </nav>
         <div className="sidebar-footer"><div className="avatar">ع</div><div><strong>مساحة المتجر</strong><span>الإصدار 0.2 — تطوير</span></div></div>
@@ -507,8 +512,9 @@ export default function App() {
 
       <main className="main-area">
         <header className="topbar">
-          <div><span className="eyebrow">نظام إدارة المتجر</span><h1>{navigation.find((item) => item.id === section)?.label}</h1></div>
-          <div className="topbar-actions"><span className={desktop ? "runtime-badge online" : "runtime-badge"}><span />{desktop ? "قاعدة محلية" : "وضع المعاينة"}</span><button className="icon-button" aria-label="تحديث البيانات" onClick={() => void refreshAll()}><RefreshCw size={17} /></button></div>
+          <div className="page-heading"><span className="eyebrow">ABDULMALIK STORE MANAGEMENT / مساحة العمل</span><h1>{navigation.find((item) => item.id === section)?.label}</h1></div>
+          <label className="header-search"><Search size={16}/><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث في القسم الحالي..." aria-label="البحث في القسم الحالي"/><kbd>Ctrl K</kbd></label>
+          <div className="topbar-actions"><span className={desktop ? "runtime-badge online" : "runtime-badge"}><span />{desktop ? "SQLite محلي" : "وضع المعاينة"}</span><button className="icon-button" aria-label="تحديث البيانات" onClick={() => void refreshAll()}><RefreshCw size={17} /></button></div>
         </header>
 
         {!desktop && <div className="notice"><Wifi size={18} /><div><strong>هذه معاينة للواجهة</strong><span>شغّل التطبيق عبر Tauri للوصول إلى قاعدة SQLite المحلية وتنفيذ العمليات.</span></div></div>}
