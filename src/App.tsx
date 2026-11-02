@@ -46,7 +46,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (section === "products" && desktop) void refreshProducts(search);
+    if ((section === "products" || section === "accessories") && desktop) void refreshProducts(search);
   }, [search, section, desktop]);
 
   const lowStock = useMemo(() => products.filter((p) => p.quantity <= p.minQuantity).length, [products]);
