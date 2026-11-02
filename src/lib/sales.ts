@@ -43,7 +43,9 @@ export async function createSale(input: { items: SaleItemInput[]; discount: numb
   await db.execute("COMMIT");
   return {saleId,invoiceNumber,subtotal,discount,total,paidAmount:input.paidAmount};
  } catch (error) {
-  try { await db.execute("ROLLBACK"); } catch {}
+  try { await db.execute("ROLLBACK"); } catch {
+   // Preserve the original transaction error if rollback itself fails.
+  }
   throw error;
  }
 }
