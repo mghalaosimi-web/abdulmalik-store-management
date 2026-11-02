@@ -9,11 +9,12 @@ import { isDesktopRuntime } from "./lib/database";
 import type { Product } from "./types";
 import PointOfSale from "./components/PointOfSale";
 
-type Section = "dashboard" | "products" | "sales" | "customers" | "repairs" | "reports" | "settings";
+type Section = "dashboard" | "products" | "accessories" | "sales" | "customers" | "repairs" | "reports" | "settings";
 
 const navigation: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "الرئيسية", icon: LayoutDashboard },
   { id: "products", label: "المنتجات والمخزون", icon: Package },
+  { id: "accessories", label: "الأكسسوارات", icon: Headphones },
   { id: "sales", label: "المبيعات ونقطة البيع", icon: ShoppingCart },
   { id: "customers", label: "العملاء والموردون", icon: Users },
   { id: "repairs", label: "الصيانة والضمان", icon: Wrench },
@@ -49,8 +50,12 @@ export default function App() {
   }, [search, section, desktop]);
 
   const lowStock = useMemo(() => products.filter((p) => p.quantity <= p.minQuantity).length, [products]);
+  const isAccessories = section === "accessories";
+  const visibleProducts = useMemo(() => isAccessories
+    ? products.filter((p) => /^(الأكسسوارات|الاكسسوارات|إكسسوارات|اكسسوارات)$/u.test(p.category.trim()))
+    : products, [products, isAccessories]);
 
-  async function handleCreate(form: HTMLFormElement) {
+  async function handleCreate(form: HTMLFormElement, forcedCategory?: string) {
     const data = new FormData(form);
     const number = (key: string) => Number(data.get(key));
     try {
@@ -117,13 +122,13 @@ export default function App() {
           </>
         )}
 
-        {section === "products" && <section className="panel data-panel"><div className="panel-heading"><div><h3>المنتجات والمخزون</h3><p>إدارة الأصناف والأسعار والكميات المتاحة</p></div><button className="primary-button" onClick={() => setShowCreate(true)}><Plus size={17} /> إضافة منتج</button></div><div className="table-toolbar"><label className="search-box"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث بالاسم أو الرمز أو العلامة التجارية" /></label><span className="result-count">{products.length} منتج</span></div><div className="table-wrap"><table><thead><tr><th>المنتج</th><th>رمز SKU</th><th>الباركود</th><th>التصنيف</th><th>سعر التكلفة</th><th>سعر البيع</th><th>الكمية</th><th>الحالة</th></tr></thead><tbody>{products.map((p) => <tr key={p.id}><td><div className="product-name-cell">{p.imageData ? <img src={p.imageData} alt="" /> : <span className="product-image-placeholder">صورة</span>}<div><strong>{p.name}</strong><small>{p.brand || "بدون علامة تجارية"}</small></div></div></td><td dir="ltr">{p.sku}</td><td dir="ltr">{p.barcode || "—"}</td><td>{p.category}</td><td>{p.costPrice.toLocaleString("ar")}</td><td>{p.salePrice.toLocaleString("ar")}</td><td><span className={p.quantity <= p.minQuantity ? "quantity low" : "quantity"}>{p.quantity}</span></td><td><span className="pill success">نشط</span></td></tr>)}</tbody></table>{products.length === 0 && <div className="table-empty">لا توجد منتجات مسجلة حتى الآن.</div>}</div></section>}
+        {(section === "products" || isAccessories) && <section className="panel data-panel"><div className="panel-heading"><div><h3>{isAccessories ? "الأكسسوارات" : "المنتجات والمخزون"}</h3><p>{isAccessories ? "إدارة أغطية الجوالات والسماعات والشواحن وبقية ملحقات المحل" : "إدارة الأصناف والأسعار والكميات المتاحة"}</p></div><button className="primary-button" onClick={() => setShowCreate(true)}><Plus size={17} /> {isAccessories ? "إضافة أكسسوار" : "إضافة منتج"}</button></div><div className="table-toolbar"><label className="search-box"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isAccessories ? "ابحث عن أكسسوار بالاسم أو الرمز أو العلامة" : "ابحث بالاسم أو الرمز أو العلامة التجارية"} /></label><span className="result-count">{visibleProducts.length} {isAccessories ? "أكسسوار" : "منتج"}</span></div><div className="table-wrap"><table><thead><tr><th>المنتج</th><th>رمز SKU</th><th>الباركود</th><th>التصنيف</th><th>سعر التكلفة</th><th>سعر البيع</th><th>الكمية</th><th>الحالة</th></tr></thead><tbody>{visibleProducts.map((p) => <tr key={p.id}><td><div className="product-name-cell">{p.imageData ? <img src={p.imageData} alt="" /> : <span className="product-image-placeholder">صورة</span>}<div><strong>{p.name}</strong><small>{p.brand || "بدون علامة تجارية"}</small></div></div></td><td dir="ltr">{p.sku}</td><td dir="ltr">{p.barcode || "—"}</td><td>{p.category}</td><td>{p.costPrice.toLocaleString("ar")}</td><td>{p.salePrice.toLocaleString("ar")}</td><td><span className={p.quantity <= p.minQuantity ? "quantity low" : "quantity"}>{p.quantity}</span></td><td><span className="pill success">نشط</span></td></tr>)}</tbody></table>{visibleProducts.length === 0 && <div className="table-empty">{isAccessories ? "لا توجد أكسسوارات مسجلة. أضف أول أكسسوار للمحل." : "لا توجد منتجات مسجلة حتى الآن."}</div>}</div></section>}
 
         {section === "sales" && <PointOfSale onSaleCompleted={() => void refreshProducts("")} />}
-        {section !== "dashboard" && section !== "products" && section !== "sales" && <section className="panel placeholder-panel"><div className="empty-icon"><ClipboardList size={25} /></div><h3>{navigation.find((item) => item.id === section)?.label}</h3><p>هذه الوحدة مدرجة في خارطة التنفيذ. لن تُعرض كوظيفة مكتملة قبل تنفيذ منطقها وربطها واختبارها.</p><span className="subtle-tag">قيد التطوير</span></section>}
+        {section !== "dashboard" && section !== "products" && section !== "accessories" && section !== "sales" && <section className="panel placeholder-panel"><div className="empty-icon"><ClipboardList size={25} /></div><h3>{navigation.find((item) => item.id === section)?.label}</h3><p>هذه الوحدة مدرجة في خارطة التنفيذ. لن تُعرض كوظيفة مكتملة قبل تنفيذ منطقها وربطها واختبارها.</p><span className="subtle-tag">قيد التطوير</span></section>}
       </main>
 
-      {showCreate && <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowCreate(false); }}><form className="modal" onSubmit={(e) => { e.preventDefault(); void handleCreate(e.currentTarget); }}><div className="modal-heading"><div><h2>إضافة منتج جديد</h2><p>أدخل بيانات الصنف الأساسية</p></div><button type="button" className="icon-button" onClick={() => setShowCreate(false)} aria-label="إغلاق"><X size={19} /></button></div><div className="form-grid"><Field name="name" label="اسم المنتج" required /><Field name="image" label="صورة المنتج" type="file" /><Field name="sku" label="رمز SKU" required /><Field name="barcode" label="الباركود (EAN/UPC)" /><Field name="category" label="التصنيف" required /><Field name="brand" label="العلامة التجارية" /><Field name="costPrice" label="سعر التكلفة" type="number" min="0" step="0.01" required /><Field name="salePrice" label="سعر البيع" type="number" min="0" step="0.01" required /><Field name="quantity" label="الكمية الافتتاحية" type="number" min="0" required /><Field name="minQuantity" label="حد التنبيه" type="number" min="0" required /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowCreate(false)}>إلغاء</button><button className="primary-button" type="submit">حفظ المنتج</button></div></form></div>}
+      {showCreate && <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowCreate(false); }}><form className="modal" onSubmit={(e) => { e.preventDefault(); void handleCreate(e.currentTarget, isAccessories ? "الأكسسوارات" : undefined); }}><div className="modal-heading"><div><h2>{isAccessories ? "إضافة أكسسوار جديد" : "إضافة منتج جديد"}</h2><p>{isAccessories ? "أدخل بيانات الأكسسوار وسعره وكميته" : "أدخل بيانات الصنف الأساسية"}</p></div><button type="button" className="icon-button" onClick={() => setShowCreate(false)} aria-label="إغلاق"><X size={19} /></button></div><div className="form-grid"><Field name="name" label="اسم المنتج" required /><Field name="image" label="صورة المنتج" type="file" /><Field name="sku" label="رمز SKU" required /><Field name="barcode" label="الباركود (EAN/UPC)" />{!isAccessories && <Field name="category" label="التصنيف" required />}<Field name="brand" label="العلامة التجارية" /><Field name="costPrice" label="سعر التكلفة" type="number" min="0" step="0.01" required /><Field name="salePrice" label="سعر البيع" type="number" min="0" step="0.01" required /><Field name="quantity" label="الكمية الافتتاحية" type="number" min="0" required /><Field name="minQuantity" label="حد التنبيه" type="number" min="0" required /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowCreate(false)}>إلغاء</button><button className="primary-button" type="submit">حفظ المنتج</button></div></form></div>}
     </div>
   );
 }
