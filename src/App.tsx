@@ -11,6 +11,29 @@ import PointOfSale from "./components/PointOfSale";
 
 type Section = "dashboard" | "products" | "accessories" | "sales" | "customers" | "repairs" | "reports" | "settings";
 
+const ACCESSORY_PREFIX = "الأكسسوارات::";
+const ACCESSORY_CATEGORIES = [
+  { value: "أغطية وحافظات", label: "أغطية وحافظات" },
+  { value: "سماعات", label: "السماعات" },
+  { value: "شواحن", label: "الشواحن ورؤوس الشحن" },
+  { value: "كابلات", label: "الكابلات والتوصيلات" },
+  { value: "حماية الشاشة", label: "حماية الشاشة" },
+  { value: "حوامل", label: "حوامل ومثبتات" },
+  { value: "بطاقات ذاكرة", label: "بطاقات الذاكرة والتخزين" },
+  { value: "بطاريات وقطع", label: "بطاريات وقطع ملحقة" },
+  { value: "أخرى", label: "أكسسوارات أخرى" },
+] as const;
+
+function accessoryCategoryOf(category: string): string {
+  if (category.startsWith(ACCESSORY_PREFIX)) return category.slice(ACCESSORY_PREFIX.length);
+  if (/^(الأكسسوارات|الاكسسوارات|إكسسوارات|اكسسوارات)$/u.test(category.trim())) return "غير مصنف";
+  return "";
+}
+
+function isAccessoryCategory(category: string): boolean {
+  return Boolean(accessoryCategoryOf(category));
+}
+
 const navigation: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "الرئيسية", icon: LayoutDashboard },
   { id: "products", label: "المنتجات والمخزون", icon: Package },
@@ -26,6 +49,7 @@ export default function App() {
   const [section, setSection] = useState<Section>("dashboard");
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
+  const [accessoryFilter, setAccessoryFilter] = useState("الكل");
   const [showCreate, setShowCreate] = useState(false);
   const [desktop, setDesktop] = useState(false);
   const [error, setError] = useState("");
@@ -51,9 +75,13 @@ export default function App() {
 
   const lowStock = useMemo(() => products.filter((p) => p.quantity <= p.minQuantity).length, [products]);
   const isAccessories = section === "accessories";
-  const visibleProducts = useMemo(() => isAccessories
-    ? products.filter((p) => /^(الأكسسوارات|الاكسسوارات|إكسسوارات|اكسسوارات)$/u.test(p.category.trim()))
-    : products, [products, isAccessories]);
+  const visibleProducts = useMemo(() => {
+    if (!isAccessories) return products.filter((p) => !isAccessoryCategory(p.category));
+    return products.filter((p) => {
+      const category = accessoryCategoryOf(p.category);
+      return Boolean(category) && (accessoryFilter === "الكل" || category === accessoryFilter);
+    });
+  }, [products, isAccessories, accessoryFilter]);
 
   async function handleCreate(form: HTMLFormElement, forcedCategory?: string) {
     const data = new FormData(form);
@@ -65,7 +93,7 @@ export default function App() {
         sku: String(data.get("sku") ?? ""),
         barcode: String(data.get("barcode") ?? ""),
         name: String(data.get("name") ?? ""),
-        category: String(data.get("category") ?? ""),
+        category: forcedCategory ? ACCESSORY_PREFIX + forcedCategory : String(data.get("category") ?? ""),
         brand: String(data.get("brand") ?? ""),
         costPrice: number("costPrice"),
         salePrice: number("salePrice"),
@@ -122,13 +150,13 @@ export default function App() {
           </>
         )}
 
-        {(section === "products" || isAccessories) && <section className="panel data-panel"><div className="panel-heading"><div><h3>{isAccessories ? "الأكسسوارات" : "المنتجات والمخزون"}</h3><p>{isAccessories ? "إدارة أغطية الجوالات والسماعات والشواحن وبقية ملحقات المحل" : "إدارة الأصناف والأسعار والكميات المتاحة"}</p></div><button className="primary-button" onClick={() => setShowCreate(true)}><Plus size={17} /> {isAccessories ? "إضافة أكسسوار" : "إضافة منتج"}</button></div><div className="table-toolbar"><label className="search-box"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isAccessories ? "ابحث عن أكسسوار بالاسم أو الرمز أو العلامة" : "ابحث بالاسم أو الرمز أو العلامة التجارية"} /></label><span className="result-count">{visibleProducts.length} {isAccessories ? "أكسسوار" : "منتج"}</span></div><div className="table-wrap"><table><thead><tr><th>المنتج</th><th>رمز SKU</th><th>الباركود</th><th>التصنيف</th><th>سعر التكلفة</th><th>سعر البيع</th><th>الكمية</th><th>الحالة</th></tr></thead><tbody>{visibleProducts.map((p) => <tr key={p.id}><td><div className="product-name-cell">{p.imageData ? <img src={p.imageData} alt="" /> : <span className="product-image-placeholder">صورة</span>}<div><strong>{p.name}</strong><small>{p.brand || "بدون علامة تجارية"}</small></div></div></td><td dir="ltr">{p.sku}</td><td dir="ltr">{p.barcode || "—"}</td><td>{p.category}</td><td>{p.costPrice.toLocaleString("ar")}</td><td>{p.salePrice.toLocaleString("ar")}</td><td><span className={p.quantity <= p.minQuantity ? "quantity low" : "quantity"}>{p.quantity}</span></td><td><span className="pill success">نشط</span></td></tr>)}</tbody></table>{visibleProducts.length === 0 && <div className="table-empty">{isAccessories ? "لا توجد أكسسوارات مسجلة. أضف أول أكسسوار للمحل." : "لا توجد منتجات مسجلة حتى الآن."}</div>}</div></section>}
+        {(section === "products" || isAccessories) && <section className="panel data-panel"><div className="panel-heading"><div><h3>{isAccessories ? "الأكسسوارات" : "المنتجات والمخزون"}</h3><p>{isAccessories ? "إدارة أغطية الجوالات والسماعات والشواحن وبقية ملحقات المحل" : "إدارة الأصناف والأسعار والكميات المتاحة"}</p></div><button className="primary-button" onClick={() => setShowCreate(true)}><Plus size={17} /> {isAccessories ? "إضافة أكسسوار" : "إضافة منتج"}</button></div><div className="table-toolbar"><label className="search-box"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={isAccessories ? "ابحث عن أكسسوار بالاسم أو الرمز أو العلامة" : "ابحث بالاسم أو الرمز أو العلامة التجارية"} /></label>{isAccessories && <label className="field accessory-filter"><span>تصفية حسب القسم</span><select value={accessoryFilter} onChange={(e) => setAccessoryFilter(e.target.value)}><option value="الكل">كل الأكسسوارات</option>{ACCESSORY_CATEGORIES.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}<option value="غير مصنف">أكسسوارات قديمة غير مصنفة</option></select></label>}<span className="result-count">{visibleProducts.length} {isAccessories ? "أكسسوار" : "منتج"}</span></div><div className="table-wrap"><table><thead><tr><th>المنتج</th><th>رمز SKU</th><th>الباركود</th><th>التصنيف</th><th>سعر التكلفة</th><th>سعر البيع</th><th>الكمية</th><th>الحالة</th></tr></thead><tbody>{visibleProducts.map((p) => <tr key={p.id}><td><div className="product-name-cell">{p.imageData ? <img src={p.imageData} alt="" /> : <span className="product-image-placeholder">صورة</span>}<div><strong>{p.name}</strong><small>{p.brand || "بدون علامة تجارية"}</small></div></div></td><td dir="ltr">{p.sku}</td><td dir="ltr">{p.barcode || "—"}</td><td>{isAccessories ? (ACCESSORY_CATEGORIES.find((item) => item.value === accessoryCategoryOf(p.category))?.label ?? "غير مصنف") : p.category}</td><td>{p.costPrice.toLocaleString("ar")}</td><td>{p.salePrice.toLocaleString("ar")}</td><td><span className={p.quantity <= p.minQuantity ? "quantity low" : "quantity"}>{p.quantity}</span></td><td><span className="pill success">نشط</span></td></tr>)}</tbody></table>{visibleProducts.length === 0 && <div className="table-empty">{isAccessories ? "لا توجد أكسسوارات مسجلة. أضف أول أكسسوار للمحل." : "لا توجد منتجات مسجلة حتى الآن."}</div>}</div></section>}
 
         {section === "sales" && <PointOfSale onSaleCompleted={() => void refreshProducts("")} />}
         {section !== "dashboard" && section !== "products" && section !== "accessories" && section !== "sales" && <section className="panel placeholder-panel"><div className="empty-icon"><ClipboardList size={25} /></div><h3>{navigation.find((item) => item.id === section)?.label}</h3><p>هذه الوحدة مدرجة في خارطة التنفيذ. لن تُعرض كوظيفة مكتملة قبل تنفيذ منطقها وربطها واختبارها.</p><span className="subtle-tag">قيد التطوير</span></section>}
       </main>
 
-      {showCreate && <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowCreate(false); }}><form className="modal" onSubmit={(e) => { e.preventDefault(); void handleCreate(e.currentTarget, isAccessories ? "الأكسسوارات" : undefined); }}><div className="modal-heading"><div><h2>{isAccessories ? "إضافة أكسسوار جديد" : "إضافة منتج جديد"}</h2><p>{isAccessories ? "أدخل بيانات الأكسسوار وسعره وكميته" : "أدخل بيانات الصنف الأساسية"}</p></div><button type="button" className="icon-button" onClick={() => setShowCreate(false)} aria-label="إغلاق"><X size={19} /></button></div><div className="form-grid"><Field name="name" label="اسم المنتج" required /><Field name="image" label="صورة المنتج" type="file" /><Field name="sku" label="رمز SKU" required /><Field name="barcode" label="الباركود (EAN/UPC)" />{!isAccessories && <Field name="category" label="التصنيف" required />}<Field name="brand" label="العلامة التجارية" /><Field name="costPrice" label="سعر التكلفة" type="number" min="0" step="0.01" required /><Field name="salePrice" label="سعر البيع" type="number" min="0" step="0.01" required /><Field name="quantity" label="الكمية الافتتاحية" type="number" min="0" required /><Field name="minQuantity" label="حد التنبيه" type="number" min="0" required /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowCreate(false)}>إلغاء</button><button className="primary-button" type="submit">حفظ المنتج</button></div></form></div>}
+      {showCreate && <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) setShowCreate(false); }}><form className="modal" onSubmit={(e) => { e.preventDefault(); void handleCreate(e.currentTarget, isAccessories ? "الأكسسوارات" : undefined); }}><div className="modal-heading"><div><h2>{isAccessories ? "إضافة أكسسوار جديد" : "إضافة منتج جديد"}</h2><p>{isAccessories ? "اختر القسم أولاً ليُفهرس الأكسسوار ضمن مجموعته دون اختلاط مع المنتجات أو بقية الأقسام" : "أدخل بيانات الصنف الأساسية"}</p></div><button type="button" className="icon-button" onClick={() => setShowCreate(false)} aria-label="إغلاق"><X size={19} /></button></div><div className="form-grid"><Field name="name" label="اسم المنتج" required /><Field name="image" label="صورة المنتج" type="file" /><Field name="sku" label="رمز SKU" required /><Field name="barcode" label="الباركود (EAN/UPC)" />{isAccessories ? <label className="field"><span>قسم الأكسسوار *</span><select name="category" required defaultValue=""><option value="" disabled>اختر القسم المناسب</option>{ACCESSORY_CATEGORIES.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}</select></label> : <Field name="category" label="التصنيف" required />}<Field name="brand" label="العلامة التجارية" /><Field name="costPrice" label="سعر التكلفة" type="number" min="0" step="0.01" required /><Field name="salePrice" label="سعر البيع" type="number" min="0" step="0.01" required /><Field name="quantity" label="الكمية الافتتاحية" type="number" min="0" required /><Field name="minQuantity" label="حد التنبيه" type="number" min="0" required /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowCreate(false)}>إلغاء</button><button className="primary-button" type="submit">حفظ المنتج</button></div></form></div>}
     </div>
   );
 }
