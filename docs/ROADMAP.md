@@ -11,6 +11,7 @@
 ## Phase 1 — Catalog and inventory
 - [x] Initial product table and create/list path.
 - [x] Dedicated accessories section for covers, headphones, chargers, and store accessories.
+- [x] Separate accessory category indexing and category-based filtering (covers, headphones, chargers, cables, screen protection, mounts, storage, batteries, and other accessories).
 - [ ] Categories and brands management.
 - [ ] Serialized device intake and IMEI validation.
 - [ ] Stock ledger, adjustments, and reconciliation.
